@@ -1,0 +1,831 @@
+{
+  "agent_instructions": {
+    "before_start": [
+      "Прочитай этот файл и git log --oneline -20",
+      "Выбери ОДНУ задачу со статусом pending и наивысшим приоритетом",
+      "Проверь, что все dependencies этой задачи имеют статус done"
+    ],
+    "during_work": [
+      "Работай только над выбранной задачей",
+      "Делай коммиты после каждого логического изменения",
+      "Не трогай код, не связанный с текущей задачей"
+    ],
+    "before_finish": [
+      "Выполни ВСЕ test_steps из задачи",
+      "Меняй status на done ТОЛЬКО после успешного прохождения всех тестов",
+      "Напиши summary в progress.md",
+      "ЗАПРЕЩЕНО удалять или редактировать задачи — только менять status"
+    ]
+  },
+  "architecture": {
+    "folder_structure": "cmd/bot/main.go | internal/config | internal/domain | internal/storage (sqlite.go, migrations/, *_repo.go, tx.go) | internal/service (*_service.go, interfaces.go) | internal/bot (bot.go, router.go, middleware/, handlers/, keyboards/, views/, hub/updater.go) | internal/fsm | internal/logging",
+    "key_patterns": [
+      "Handlers -> Services -> Repositories (три слоя, без ORM)",
+      "Interfaces определяются в service, реализуются в storage",
+      "FSM в памяти для stateful диалогов (phone, bank, final chips)",
+      "TxManager через context injection для атомарных операций",
+      "Hub updater с дебаунсингом против 429 Telegram rate limit",
+      "Domain types — чистые Go structs без импортов из других internal пакетов"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Инициализация Go-проекта: структура папок, go.mod, .env.example, .gitignore",
+      "acceptance_criteria": [
+        "go.mod создан с module path poker-bot и go 1.22+",
+        "Папки cmd/bot/, internal/{config,domain,storage,service,bot,fsm,logging}/ созданы",
+        ".gitignore содержит .env, *.db, *.log, /bot (бинарник)",
+        ".env.example содержит все переменные: TELEGRAM_BOT_TOKEN, DB_PATH, LOG_PATH, ALLOWED_CHAT_ID, ADMIN_USER_IDS",
+        "go build ./... проходит без ошибок (даже если пакеты пустые)"
+      ],
+      "test_steps": [
+        "Шаг 1: выполнить go mod tidy && go build ./...",
+        "Шаг 2: убедиться, что .env не попадает в git (проверить .gitignore)",
+        "Шаг 3: убедиться, что все папки из acceptance_criteria существуют"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-002",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Пакет internal/config: загрузка переменных окружения из .env, валидация обязательных полей",
+      "acceptance_criteria": [
+        "Структура Config содержит: BotToken string, DBPath string, LogPath string, AllowedChatID int64, AdminUserIDs []int64",
+        "Функция Load() возвращает (*Config, error), читает .env через github.com/joho/godotenv",
+        "При отсутствии TELEGRAM_BOT_TOKEN или ALLOWED_CHAT_ID возвращается ошибка с понятным текстом",
+        "DB_PATH и LOG_PATH имеют значения по умолчанию: ./poker.db и ./bot.log",
+        "ADMIN_USER_IDS парсится как comma-separated список int64"
+      ],
+      "test_steps": [
+        "Шаг 1: создать .env с обязательными полями, вызвать config.Load() — ошибки нет",
+        "Шаг 2: убрать TELEGRAM_BOT_TOKEN из .env, вызвать config.Load() — вернулась ошибка",
+        "Шаг 3: проверить, что DB_PATH == ./poker.db при пустом .env для этого поля"
+      ],
+      "dependencies": ["TASK-001"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-003",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Пакет internal/logging: настройка slog с выводом в файл + ротация через lumberjack.v2",
+      "acceptance_criteria": [
+        "Функция Setup(logPath string) устанавливает глобальный slog.Default()",
+        "Ротация при 10 MB, хранение 5 бэкапов, MaxAge не ограничен",
+        "Формат: JSON (structured) с полями time, level, msg, плюс произвольные атрибуты",
+        "При logPath == \"\" логи идут в stdout",
+        "Логирование работает через slog.Info(), slog.Warn(), slog.Error() после Setup()"
+      ],
+      "test_steps": [
+        "Шаг 1: вызвать logging.Setup(\"./test.log\"), затем slog.Info(\"test\", \"key\", \"val\")",
+        "Шаг 2: убедиться, что файл test.log создан и содержит JSON-строку с полем msg=test",
+        "Шаг 3: удалить test.log после теста"
+      ],
+      "dependencies": ["TASK-001"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-004",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Пакет internal/storage: открытие SQLite, включение WAL и foreign keys, embedded migrations runner",
+      "acceptance_criteria": [
+        "Функция Open(dbPath string) (*sql.DB, error) открывает БД через modernc.org/sqlite",
+        "После открытия выполняются PRAGMA journal_mode=WAL и PRAGMA foreign_keys=ON",
+        "SQL-миграции хранятся в internal/storage/migrations/*.sql и embedded через go:embed",
+        "RunMigrations(db) выполняет все .sql файлы в алфавитном порядке при старте",
+        "Повторный запуск RunMigrations идемпотентен (CREATE TABLE IF NOT EXISTS)"
+      ],
+      "test_steps": [
+        "Шаг 1: вызвать storage.Open(\":memory:\"), убедиться нет ошибок",
+        "Шаг 2: вызвать RunMigrations, затем PRAGMA journal_mode — ответ должен быть wal",
+        "Шаг 3: вызвать RunMigrations повторно — ошибок нет"
+      ],
+      "dependencies": ["TASK-001"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-005",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "SQL-миграция 001_init.sql: создание всех четырёх таблиц БД",
+      "acceptance_criteria": [
+        "Таблица players: telegram_id INTEGER PK, telegram_username TEXT, display_name TEXT NOT NULL, phone_number TEXT NOT NULL, bank_name TEXT NOT NULL, created_at TIMESTAMP, updated_at TIMESTAMP",
+        "Таблица games: id INTEGER PK AUTOINCREMENT, chat_id INTEGER NOT NULL, creator_id INTEGER FK players, buy_in INTEGER NOT NULL, hub_message_id INTEGER, status TEXT NOT NULL DEFAULT active, created_at TIMESTAMP, finished_at TIMESTAMP",
+        "Таблица game_participants: id INTEGER PK AUTOINCREMENT, game_id INTEGER FK games, player_id INTEGER FK players, rebuy_count INTEGER NOT NULL DEFAULT 0, final_chips INTEGER, results_confirmed BOOLEAN NOT NULL DEFAULT 0, joined_at TIMESTAMP. UNIQUE(game_id, player_id)",
+        "Таблица settlements: id INTEGER PK AUTOINCREMENT, game_id INTEGER FK games, from_player_id INTEGER FK players, to_player_id INTEGER FK players, amount INTEGER NOT NULL",
+        "Все FK с ON DELETE RESTRICT"
+      ],
+      "test_steps": [
+        "Шаг 1: запустить RunMigrations на :memory: БД",
+        "Шаг 2: выполнить SELECT name FROM sqlite_master WHERE type='table' — все 4 таблицы есть",
+        "Шаг 3: попытаться вставить game_participant с несуществующим game_id — получить ошибку FK"
+      ],
+      "dependencies": ["TASK-004"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-006",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Graceful shutdown в main.go через signal.NotifyContext",
+      "acceptance_criteria": [
+        "main.go создаёт context через signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)",
+        "При SIGINT/SIGTERM контекст отменяется, бот прекращает polling",
+        "После остановки polling закрывается DB (db.Close()) и файл логов",
+        "Таймаут на завершение — 5 секунд",
+        "Сообщение в лог: INFO \"bot stopped gracefully\""
+      ],
+      "test_steps": [
+        "Шаг 1: запустить бота, отправить SIGINT (Ctrl+C)",
+        "Шаг 2: убедиться, что бот завершился без паники",
+        "Шаг 3: убедиться, что в логах есть \"bot stopped gracefully\""
+      ],
+      "dependencies": ["TASK-002", "TASK-003", "TASK-004"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-007",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Базовый Telegram бот: подключение go-telegram/bot, long polling, /ping команда для проверки",
+      "acceptance_criteria": [
+        "Добавлена зависимость github.com/go-telegram/bot в go.mod",
+        "Бот запускается через bot.New(token) и b.Start(ctx)",
+        "Обработчик /ping отвечает \"pong\" в тот же чат",
+        "Ошибки Telegram API логируются через slog.Error",
+        "Бот корректно останавливается при отмене контекста (из TASK-006)"
+      ],
+      "test_steps": [
+        "Шаг 1: запустить бота с реальным токеном",
+        "Шаг 2: отправить /ping в личный чат боту — получить \"pong\"",
+        "Шаг 3: отправить SIGINT — бот завершился без ошибок"
+      ],
+      "dependencies": ["TASK-006"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-008",
+      "category": "security",
+      "priority": "critical",
+      "description": "Middleware контроля доступа: бот реагирует только на ALLOWED_CHAT_ID и его участников",
+      "acceptance_criteria": [
+        "Middleware проверяет: если update из группового чата — chat_id должен совпадать с ALLOWED_CHAT_ID",
+        "Если update из личного чата — проверить членство через getChatMember(ALLOWED_CHAT_ID, userID), результат кэшировать в памяти (TTL 10 минут)",
+        "Неавторизованным пользователям: \"Этот бот работает только в закрытой группе. Обратись к владельцу.\"",
+        "Middleware применяется глобально до всех хендлеров",
+        "getChatMember не вызывается для каждого сообщения — используется in-memory кэш"
+      ],
+      "test_steps": [
+        "Шаг 1: отправить /ping с аккаунта, не состоящего в группе — получить сообщение об ограничении",
+        "Шаг 2: отправить /ping с аккаунта из группы — получить \"pong\"",
+        "Шаг 3: убедиться, что в логах второй запрос не вызывает getChatMember (кэш работает)"
+      ],
+      "dependencies": ["TASK-007"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-009",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Domain types: Player, Game, Participant, Settlement, GameStatus, доменные ошибки",
+      "acceptance_criteria": [
+        "internal/domain/player.go: struct Player с полями из схемы БД",
+        "internal/domain/game.go: struct Game, struct Participant, type GameStatus string с константами Active/CollectingResults/Finished",
+        "internal/domain/settlement.go: struct Settlement, struct Transfer{FromPlayerID, ToPlayerID, Amount}",
+        "internal/domain/errors.go: ErrNotFound, ErrAlreadyJoined, ErrNotParticipant, ErrBankMismatch, ErrGameAlreadyActive, ErrGameNotActive, ErrResultsAlreadyConfirmed",
+        "Пакет domain не импортирует ничего из internal/*"
+      ],
+      "test_steps": [
+        "Шаг 1: go build ./internal/domain/ — нет ошибок",
+        "Шаг 2: убедиться через grep, что domain не импортирует internal/*",
+        "Шаг 3: проверить, что errors.Is(ErrNotFound, ErrNotFound) == true"
+      ],
+      "dependencies": ["TASK-001"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-010",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "TxManager и PlayerRepository: интерфейс + SQLite реализация",
+      "acceptance_criteria": [
+        "internal/service/interfaces.go определяет PlayerRepository{GetByTelegramID, Upsert} и TxManager{RunInTx}",
+        "internal/storage/tx.go реализует TxManager через context-injection (*sql.Tx сохраняется в ctx)",
+        "internal/storage/player_repo.go реализует PlayerRepository через SQLite",
+        "Upsert использует INSERT OR REPLACE (или INSERT ... ON CONFLICT DO UPDATE)",
+        "Репозиторий использует tx из ctx если есть, иначе db"
+      ],
+      "test_steps": [
+        "Шаг 1: создать :memory: БД с миграциями, вставить игрока через Upsert",
+        "Шаг 2: получить игрока через GetByTelegramID — данные совпадают",
+        "Шаг 3: вызвать GetByTelegramID с несуществующим ID — вернуть domain.ErrNotFound"
+      ],
+      "dependencies": ["TASK-005", "TASK-009"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-011",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "GameRepository и ParticipantRepository: интерфейсы + SQLite реализации",
+      "acceptance_criteria": [
+        "GameRepository: Create, GetByID, GetActiveByChatID, UpdateStatus, SetHubMessageID, SetFinishedAt",
+        "ParticipantRepository: Join, IncrementRebuy, DecrementRebuy (не ниже 0), ListByGame, SetFinalChips, SetResultsConfirmed, GetByGameAndPlayer",
+        "GetActiveByChatID возвращает игру со status=active или ErrNotFound",
+        "DecrementRebuy проверяет rebuy_count > 0 перед декрементом (в SQL: UPDATE ... SET rebuy_count = MAX(0, rebuy_count-1))",
+        "Join выдаёт ErrAlreadyJoined при дублирующей вставке (UNIQUE constraint)"
+      ],
+      "test_steps": [
+        "Шаг 1: создать игру, вызвать GetActiveByChatID — получить созданную игру",
+        "Шаг 2: Join игрока, повторный Join того же игрока — ErrAlreadyJoined",
+        "Шаг 3: DecrementRebuy при rebuy_count=0 — счётчик остаётся 0, нет ошибки"
+      ],
+      "dependencies": ["TASK-010"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-012",
+      "category": "infrastructure",
+      "priority": "high",
+      "description": "SettlementRepository: SaveAll и ListByGame",
+      "acceptance_criteria": [
+        "SaveAll(ctx, gameID, []Transfer) вставляет все переводы в одной транзакции",
+        "ListByGame(ctx, gameID) возвращает все переводы для игры",
+        "При пустом слайсе переводов SaveAll не падает и ничего не вставляет",
+        "Реализация использует tx из ctx если есть"
+      ],
+      "test_steps": [
+        "Шаг 1: создать игру и участников, вызвать SaveAll с 2 переводами",
+        "Шаг 2: вызвать ListByGame — вернуть те же 2 перевода",
+        "Шаг 3: SaveAll с пустым слайсом — нет ошибки, ListByGame вернул 0 записей"
+      ],
+      "dependencies": ["TASK-011"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-013",
+      "category": "infrastructure",
+      "priority": "high",
+      "description": "FSM (Finite State Machine): in-memory хранилище сессий для stateful диалогов",
+      "acceptance_criteria": [
+        "internal/fsm/fsm.go: Store с методами Get(userID), Set(userID, *Session), Clear(userID), thread-safe",
+        "internal/fsm/states.go: константы StateIdle, StateAwaitingPhone, StateAwaitingBank, StateAwaitingChipsInput, StateAwaitingBuyIn",
+        "Session содержит: State, Data map[string]any, UpdatedAt time.Time",
+        "TTL сессии — 30 минут без активности; фоновая горутина чистит устаревшие каждые 5 минут",
+        "Concurrent Get/Set из нескольких горутин не вызывает data race (проверяется go test -race)"
+      ],
+      "test_steps": [
+        "Шаг 1: Set(1, session), Get(1) — вернуть ту же сессию",
+        "Шаг 2: Clear(1), Get(1) — вернуть nil, false",
+        "Шаг 3: go test -race ./internal/fsm/ — нет data race"
+      ],
+      "dependencies": ["TASK-001"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-014",
+      "category": "functional",
+      "priority": "critical",
+      "description": "PlayerService: логика онбординга, валидация телефона, upsert игрока",
+      "acceptance_criteria": [
+        "RegisterPlayer(ctx, telegramID, username, displayName, phone, bank) сохраняет игрока через PlayerRepository.Upsert",
+        "ValidatePhone(phone string) bool: принимает +7XXXXXXXXXX (11 цифр после +7), отклоняет всё остальное",
+        "GetPlayer(ctx, telegramID) возвращает (*domain.Player, error)",
+        "IsRegistered(ctx, telegramID) bool — обёртка над GetPlayer",
+        "UpdateDisplayName(ctx, telegramID, name string) — обновляет display_name"
+      ],
+      "test_steps": [
+        "Шаг 1: ValidatePhone(\"+79991234567\") == true",
+        "Шаг 2: ValidatePhone(\"89991234567\") == false, ValidatePhone(\"+7abc\") == false",
+        "Шаг 3: RegisterPlayer → GetPlayer — данные совпадают"
+      ],
+      "dependencies": ["TASK-010"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-015",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Хендлер /start: приветствие и запуск онбординга через FSM",
+      "acceptance_criteria": [
+        "Уже зарегистрированному игроку /start показывает его текущие данные (имя, телефон, банк) и кнопку «Ок»",
+        "Новому игроку /start показывает приветствие и кнопку «Поделиться контактом» + кнопку «Ввести номер вручную»",
+        "После нажатия «Поделиться контактом» FSM переходит в StateAwaitingPhone (ожидание contact)",
+        "После нажатия «Ввести номер вручную» FSM переходит в StateAwaitingPhone (ожидание текста)",
+        "Работает только в личном чате (не в группе)"
+      ],
+      "test_steps": [
+        "Шаг 1: отправить /start незарегистрированному пользователю — получить приветствие с двумя кнопками",
+        "Шаг 2: отправить /start зарегистрированному пользователю — получить его данные",
+        "Шаг 3: нажать «Ввести номер вручную» — следующее текстовое сообщение интерпретируется как телефон"
+      ],
+      "dependencies": ["TASK-008", "TASK-013", "TASK-014"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-016",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Онбординг: получение и валидация номера телефона (contact кнопка + ручной ввод)",
+      "acceptance_criteria": [
+        "Contact handler: получает phone_number из message.contact, нормализует в +7XXXXXXXXXX",
+        "Text handler (FSM state=AwaitingPhone): валидирует введённый номер через PlayerService.ValidatePhone",
+        "При невалидном номере бот просит повторить ввод с пояснением формата",
+        "После валидного номера FSM переходит в StateAwaitingBank, бот показывает inline-клавиатуру банков",
+        "Телефон сохраняется в FSM Data[\"phone\"] до финального сохранения профиля"
+      ],
+      "test_steps": [
+        "Шаг 1: нажать «Поделиться контактом», Telegram передаёт contact — бот показывает клавиатуру банков",
+        "Шаг 2: ввести \"abc\" как номер — бот просит ввести снова",
+        "Шаг 3: ввести \"+79991234567\" — бот показывает клавиатуру банков"
+      ],
+      "dependencies": ["TASK-015"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-017",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Онбординг: выбор банка через inline-клавиатуру и финальное сохранение профиля",
+      "acceptance_criteria": [
+        "Inline-клавиатура содержит кнопки: Тинькофф, Сбербанк, Альфа-Банк, ВТБ, Райффайзен, Озон Банк, Яндекс Банк, Другой",
+        "При выборе «Другой» FSM запрашивает ввод названия банка текстом",
+        "После выбора банка ProfileService.RegisterPlayer сохраняет игрока в БД",
+        "Бот показывает подтверждение: имя (из Telegram first_name+last_name), телефон, банк",
+        "FSM состояние сбрасывается в StateIdle"
+      ],
+      "test_steps": [
+        "Шаг 1: пройти онбординг до выбора банка, нажать «Тинькофф» — профиль сохранён, показано подтверждение",
+        "Шаг 2: нажать «Другой», ввести «Мой банк» — профиль сохранён с банком «Мой банк»",
+        "Шаг 3: повторный /start — показывает сохранённые данные (не перезаписывает)"
+      ],
+      "dependencies": ["TASK-016"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-018",
+      "category": "functional",
+      "priority": "high",
+      "description": "Команда /name: изменение отображаемого имени игрока",
+      "acceptance_criteria": [
+        "/name <новое имя> обновляет display_name в БД через PlayerService.UpdateDisplayName",
+        "Имя должно быть от 1 до 50 символов",
+        "Незарегистрированному пользователю: «Сначала зарегистрируйся через /start»",
+        "Пустое имя (/name без аргументов): показать текущее имя и инструкцию",
+        "Подтверждение: «Имя изменено на: <новое имя>»"
+      ],
+      "test_steps": [
+        "Шаг 1: /name Вася — ответ «Имя изменено на: Вася»",
+        "Шаг 2: /start — в данных отображается «Вася»",
+        "Шаг 3: /name без аргументов — показывает текущее имя"
+      ],
+      "dependencies": ["TASK-017"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-019",
+      "category": "functional",
+      "priority": "critical",
+      "description": "GameService: создание игры, проверка уникальности активной игры в чате",
+      "acceptance_criteria": [
+        "NewGame(ctx, chatID, creatorID, buyIn) создаёт игру и добавляет создателя как первого участника",
+        "buyIn валидируется: целое число от 100 до 100_000",
+        "Если в chatID уже есть игра со status=active — возвращается ErrGameAlreadyActive",
+        "GetActiveGame(ctx, chatID) возвращает активную игру или ErrNotFound",
+        "Создатель автоматически добавляется в game_participants с rebuy_count=0"
+      ],
+      "test_steps": [
+        "Шаг 1: NewGame с buyIn=1000 — игра создана, создатель в участниках",
+        "Шаг 2: повторный NewGame в том же chatID — ErrGameAlreadyActive",
+        "Шаг 3: NewGame с buyIn=50 — ошибка валидации"
+      ],
+      "dependencies": ["TASK-011"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-020",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Хендлер /newgame: запрос бай-ина и создание игры",
+      "acceptance_criteria": [
+        "/newgame работает как в личном чате, так и в групповом чате ALLOWED_CHAT_ID",
+        "Бот запрашивает бай-ин с кнопкой «1000 ₽ (по умолчанию)» и inline-вводом",
+        "После ввода бай-ина вызывает GameService.NewGame",
+        "При ErrGameAlreadyActive отвечает: «В чате уже идёт игра #N. Заверши её перед созданием новой»",
+        "Незарегистрированному игроку: «Сначала зарегистрируйся через /start»"
+      ],
+      "test_steps": [
+        "Шаг 1: /newgame в группе, выбрать «1000 ₽» — игра создана",
+        "Шаг 2: /newgame повторно — сообщение об уже активной игре",
+        "Шаг 3: /newgame с вводом нечислового значения — бот просит ввести снова"
+      ],
+      "dependencies": ["TASK-019", "TASK-014"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-021",
+      "category": "ui",
+      "priority": "critical",
+      "description": "View: рендеринг текста сообщения-хаба игры",
+      "acceptance_criteria": [
+        "internal/bot/views/hub_message.go: функция RenderHub(game *domain.Game, participants []domain.Participant) string",
+        "Формат: 🎰 Игра #N — активна / Бай-ин: X ₽ / Создатель: Имя / Игроки (N): / список игроков с докупами / 💰 Банк: Y ₽ / ⏱ Начало: HH:MM",
+        "Банк = Σ(buy_in * (1 + rebuy_count)) для всех участников",
+        "Во время collecting_results формат меняется: статус «сбор результатов», список с ⏳/✅ вместо кнопок",
+        "HTML parse mode (не Markdown), жирный шрифт для сумм через <b>"
+      ],
+      "test_steps": [
+        "Шаг 1: создать Game и 3 Participant в памяти, вызвать RenderHub — строка содержит все поля",
+        "Шаг 2: проверить, что банк корректно считается: 3 игрока, buy_in=1000, rebuy_count=[0,1,2] → банк 6000 ₽",
+        "Шаг 3: RenderHub для статуса CollectingResults — в строке «сбор результатов»"
+      ],
+      "dependencies": ["TASK-009"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-022",
+      "category": "ui",
+      "priority": "critical",
+      "description": "Keyboards: inline-клавиатуры для сообщения-хаба и FSM диалогов",
+      "acceptance_criteria": [
+        "HubKeyboard() возвращает InlineKeyboardMarkup с кнопками: ➕ Присоединиться, 💵 Докупиться, ➖ Отменить докуп, 🏁 Завершить игру",
+        "callback_data формат: «action:game_id», например «join:42», «rebuy:42», «cancel_rebuy:42», «finish:42»",
+        "BankKeyboard() возвращает список банков + «Другой»",
+        "BuyInKeyboard() — кнопка «1000 ₽ (по умолчанию)»",
+        "ChipsInputKeyboard() — кнопки «Ввести в фишках» и «Ввести в рублях»"
+      ],
+      "test_steps": [
+        "Шаг 1: HubKeyboard() для gameID=42 — callback_data кнопок содержат «:42»",
+        "Шаг 2: go build ./internal/bot/keyboards/ — нет ошибок",
+        "Шаг 3: BankKeyboard() содержит ровно 8 кнопок"
+      ],
+      "dependencies": ["TASK-001"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-023",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Публикация сообщения-хаба в групповой чат после создания игры",
+      "acceptance_criteria": [
+        "После NewGame бот отправляет сообщение-хаб в групповой чат через sendMessage",
+        "message_id сохраняется в games.hub_message_id через GameRepository.SetHubMessageID",
+        "Сообщение содержит текст из RenderHub и HubKeyboard()",
+        "parse_mode=HTML",
+        "Если /newgame вызван из личного чата — бот также публикует хаб в групповой чат (ALLOWED_CHAT_ID)"
+      ],
+      "test_steps": [
+        "Шаг 1: /newgame — в групповом чате появляется сообщение-хаб с кнопками",
+        "Шаг 2: hub_message_id в БД совпадает с ID реального сообщения",
+        "Шаг 3: /newgame из личного чата — хаб всё равно публикуется в группу"
+      ],
+      "dependencies": ["TASK-020", "TASK-021", "TASK-022"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-024",
+      "category": "functional",
+      "priority": "critical",
+      "description": "GameService методы: Join, Rebuy, CancelRebuy с транзакциями",
+      "acceptance_criteria": [
+        "Join(ctx, gameID, playerID): добавляет участника. Возвращает ErrAlreadyJoined если уже в игре, ErrNotFound если игры нет, ErrGameNotActive если не active",
+        "Rebuy(ctx, gameID, playerID): увеличивает rebuy_count на 1. Только для участников активной игры",
+        "CancelRebuy(ctx, gameID, playerID): уменьшает rebuy_count, минимум 0",
+        "Все три метода используют TxManager.RunInTx",
+        "Все три возвращают обновлённый Game со списком участников для перерисовки хаба"
+      ],
+      "test_steps": [
+        "Шаг 1: Join нового игрока — успех, он в ListByGame",
+        "Шаг 2: Rebuy 3 раза, CancelRebuy 1 раз — rebuy_count = 2",
+        "Шаг 3: CancelRebuy при rebuy_count=0 — rebuy_count остаётся 0"
+      ],
+      "dependencies": ["TASK-011", "TASK-010"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-025",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Callback хендлеры: join, rebuy, cancel_rebuy — обновление хаба через editMessageText",
+      "acceptance_criteria": [
+        "Callback «join:N»: вызывает GameService.Join, обновляет хаб, отвечает answerCallbackQuery «Ты присоединился!»",
+        "Callback «rebuy:N»: вызывает GameService.Rebuy, обновляет хаб, отвечает «Докуп записан!»",
+        "Callback «cancel_rebuy:N»: вызывает GameService.CancelRebuy, обновляет хаб",
+        "Незарегистрированный пользователь при нажатии join: answerCallbackQuery с show_alert=true «Сначала нажми /start в личном чате»",
+        "Игрок, не являющийся участником, при rebuy/cancel: answerCallbackQuery с show_alert=true"
+      ],
+      "test_steps": [
+        "Шаг 1: нажать «Присоединиться» — хаб обновился, имя игрока появилось в списке",
+        "Шаг 2: нажать «Докупиться» — счётчик докупов увеличился на 1 в хабе",
+        "Шаг 3: незарегистрированный пользователь нажимает «Присоединиться» — alert с инструкцией"
+      ],
+      "dependencies": ["TASK-024", "TASK-023"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-026",
+      "category": "infrastructure",
+      "priority": "high",
+      "description": "Hub updater: rate-limited обновление сообщения-хаба (защита от Telegram 429)",
+      "acceptance_criteria": [
+        "internal/bot/hub/updater.go: Updater с методом Schedule(gameID int64)",
+        "Одно обновление хаба не чаще 1 раза в секунду на игру (дебаунс)",
+        "При ошибке 429 Too Many Requests — использует retry_after из ответа Telegram",
+        "Несколько вызовов Schedule за 1 секунду коллапсируют в одно editMessageText",
+        "Обновление читает актуальное состояние игры из БД перед отправкой"
+      ],
+      "test_steps": [
+        "Шаг 1: вызвать Schedule(42) 5 раз за 100ms — в Telegram уходит только 1 запрос editMessageText",
+        "Шаг 2: симулировать ответ 429 с retry_after=2 — повтор через 2 секунды",
+        "Шаг 3: go test -race ./internal/bot/hub/ — нет data race"
+      ],
+      "dependencies": ["TASK-021", "TASK-022"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-027",
+      "category": "functional",
+      "priority": "high",
+      "description": "Команда /game в личном чате: персональное зеркало хаба с теми же кнопками",
+      "acceptance_criteria": [
+        "/game в личном чате отправляет сообщение с текстом RenderHub и HubKeyboard()",
+        "Кнопки работают так же, как в групповом чате",
+        "Если активной игры нет — «Активных игр нет. Создай игру командой /newgame»",
+        "Незарегистрированному: «Сначала зарегистрируйся через /start»"
+      ],
+      "test_steps": [
+        "Шаг 1: при активной игре написать /game в личку — получить хаб с кнопками",
+        "Шаг 2: нажать «Докупиться» в личном чате — хаб в группе обновился",
+        "Шаг 3: при отсутствии игры /game — сообщение «Активных игр нет»"
+      ],
+      "dependencies": ["TASK-025"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-028",
+      "category": "functional",
+      "priority": "critical",
+      "description": "GameService.FinishGame: переход в статус collecting_results",
+      "acceptance_criteria": [
+        "FinishGame(ctx, gameID, actorID) переводит игру в статус CollectingResults внутри транзакции",
+        "Только участники могут завершить игру (ErrNotParticipant для остальных)",
+        "Возвращает ErrGameNotActive если игра не в статусе active",
+        "После перехода возвращает список всех участников для рассылки личных сообщений",
+        "Используется TxManager.RunInTx"
+      ],
+      "test_steps": [
+        "Шаг 1: FinishGame на активной игре с 3 участниками — статус стал CollectingResults",
+        "Шаг 2: FinishGame повторно — ErrGameNotActive",
+        "Шаг 3: FinishGame не-участником — ErrNotParticipant"
+      ],
+      "dependencies": ["TASK-024"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-029",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Callback хендлер «finish»: подтверждение и переход к сбору результатов",
+      "acceptance_criteria": [
+        "Первое нажатие «🏁 Завершить игру»: answerCallbackQuery с show_alert=true «Точно завершить игру? Это запустит сбор результатов у всех игроков. Нажми ещё раз для подтверждения»",
+        "Второе нажатие в течение 30 секунд: вызывает GameService.FinishGame",
+        "После FinishGame: editMessageText хаба в статус «🏁 Игра #N — сбор результатов» с ⏳ для каждого участника",
+        "Бот рассылает личные сообщения всем участникам через sendMessage в их личные чаты",
+        "Состояние подтверждения хранится в FSM (data[\"finish_confirm_game_id\"], data[\"finish_confirm_time\"])"
+      ],
+      "test_steps": [
+        "Шаг 1: нажать «Завершить» один раз — появился alert с предупреждением",
+        "Шаг 2: нажать «Завершить» второй раз — игра перешла в collecting_results, хаб обновился",
+        "Шаг 3: каждый участник получил личное сообщение с запросом финальных данных"
+      ],
+      "dependencies": ["TASK-028", "TASK-013", "TASK-021"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-030",
+      "category": "functional",
+      "priority": "critical",
+      "description": "View и FSM: личное сообщение для сбора финальных данных участника",
+      "acceptance_criteria": [
+        "Личное сообщение содержит: Бай-ин, Докупов с кнопками ➖/➕, Всего вложено, кнопки «Ввести в фишках» / «Ввести в рублях»",
+        "Кнопки ➖/➕ корректируют rebuy_count (только этого участника в этой игре) и обновляют личное сообщение",
+        "При нажатии «Ввести в фишках»/«в рублях» FSM переходит в StateAwaitingChipsInput, сохраняет game_id и режим ввода",
+        "Следующее числовое сообщение от игрока трактуется как остаток фишек",
+        "Валидация: целое число >= 0"
+      ],
+      "test_steps": [
+        "Шаг 1: получить личное сообщение, нажать ➕ — докупов стало +1, Всего вложено обновилось",
+        "Шаг 2: нажать «Ввести в фишках», ввести 1500 — появляется сообщение подтверждения",
+        "Шаг 3: ввести «abc» — бот просит ввести число"
+      ],
+      "dependencies": ["TASK-029", "TASK-013"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-031",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Подтверждение финальных данных участника и обновление хаба",
+      "acceptance_criteria": [
+        "После ввода остатка бот показывает: Докупов: N / Осталось: X ₽ / Результат: +/-Y ₽ / кнопки [✅ Подтвердить] [✏️ Изменить]",
+        "✅ Подтвердить: вызывает GameService.SubmitResult(ctx, gameID, playerID, finalChips, rebuyCount) — сохраняет final_chips и results_confirmed=true",
+        "✏️ Изменить: возвращает к личному сообщению сбора данных (TASK-030)",
+        "После подтверждения: хаб в группе обновляется (✅ рядом с именем игрока)",
+        "Если уже подтвердил — повторное нажатие «Подтвердить» игнорируется с уведомлением"
+      ],
+      "test_steps": [
+        "Шаг 1: ввести остаток, нажать «Подтвердить» — статус игрока стал ✅ в хабе",
+        "Шаг 2: нажать «Изменить» — вернуться к вводу данных",
+        "Шаг 3: повторное нажатие «Подтвердить» — уведомление «Ты уже подтвердил данные»"
+      ],
+      "dependencies": ["TASK-030"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-032",
+      "category": "functional",
+      "priority": "high",
+      "description": "Команда /edit в личном чате: возврат к редактированию данных во время сбора результатов",
+      "acceptance_criteria": [
+        "/edit в личном чате во время collecting_results: показывает личное сообщение ввода данных (как в TASK-030)",
+        "Если все уже подтвердили результаты (игра finished) — «Изменение данных невозможно, расчёт уже выполнен»",
+        "Если игра не в статусе collecting_results — «Сбора результатов нет. Используй /game для управления игрой»",
+        "После /edit игрок может изменить данные и подтвердить заново",
+        "Изменённые данные перезаписывают предыдущие (results_confirmed снова false до повторного подтверждения)"
+      ],
+      "test_steps": [
+        "Шаг 1: после ввода данных написать /edit — получить форму повторного ввода",
+        "Шаг 2: ввести другое значение и подтвердить — данные обновились в БД",
+        "Шаг 3: /edit после финального расчёта — сообщение о невозможности изменения"
+      ],
+      "dependencies": ["TASK-031"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-033",
+      "category": "functional",
+      "priority": "critical",
+      "description": "SettlementService.Validate: проверка сходимости банка после сбора всех результатов",
+      "acceptance_criteria": [
+        "Validate(participants []Participant, buyIn int) сравнивает ожидаемый банк (Σ buy_in * (1+rebuy_count)) с фактическим (Σ final_chips)",
+        "Если суммы сходятся — возвращает nil",
+        "Если не сходятся — возвращает ErrBankMismatch с полями Expected, Actual, Diff",
+        "Проверка запускается автоматически когда все participants.results_confirmed == true",
+        "При расхождении: editMessageText в групповом чате с предупреждением и разницей"
+      ],
+      "test_steps": [
+        "Шаг 1: Validate с корректными данными (сумма = 0) — nil",
+        "Шаг 2: Validate где Σfinal_chips != ожидаемый банк — ErrBankMismatch с правильными полями",
+        "Шаг 3: после ввода всех результатов при расхождении — в группе появляется сообщение ⚠️"
+      ],
+      "dependencies": ["TASK-028"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-034",
+      "category": "functional",
+      "priority": "critical",
+      "description": "SettlementService.Compute: жадный алгоритм минимизации переводов",
+      "acceptance_criteria": [
+        "Compute(participants []Participant, buyIn int) возвращает []Transfer",
+        "Алгоритм: разбить на debtors (balance<0) и creditors (balance>0), сортировать по убыванию |balance|, жадно сопоставлять",
+        "Сумма всех переводов = сумма проигрышей = сумма выигрышей",
+        "Количество переводов <= n-1 где n = число игроков с ненулевым балансом",
+        "Игрок с нулевым балансом не участвует в переводах"
+      ],
+      "test_steps": [
+        "Шаг 1: 4 игрока, балансы [-3000, -1000, +2000, +2000] — ≤3 перевода, суммы сходятся",
+        "Шаг 2: все игроки в нуле — пустой слайс переводов",
+        "Шаг 3: один игрок выиграл, один проиграл — ровно 1 перевод"
+      ],
+      "dependencies": ["TASK-009"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-035",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Оркестрация финального расчёта: вызов Validate+Compute, сохранение settlements, рассылка результатов",
+      "acceptance_criteria": [
+        "Когда все подтвердили данные: вызывается Validate, при успехе — Compute",
+        "Результаты сохраняются в БД через SettlementRepository.SaveAll",
+        "Игра переходит в статус Finished, finished_at = now()",
+        "Бот рассылает персональные сообщения каждому участнику",
+        "Бот публикует итоговую сводку в групповой чат"
+      ],
+      "test_steps": [
+        "Шаг 1: все участники подтвердили корректные данные — расчёт выполнен автоматически",
+        "Шаг 2: каждый участник получил личное сообщение с результатом",
+        "Шаг 3: в группе опубликована итоговая сводка"
+      ],
+      "dependencies": ["TASK-033", "TASK-034", "TASK-012", "TASK-031"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-036",
+      "category": "ui",
+      "priority": "critical",
+      "description": "View: персональное сообщение с результатом для проигравших (с реквизитами) и выигравших",
+      "acceptance_criteria": [
+        "Проигравшие: результат 📉, список «Тебе нужно перевести» с именем, суммой и телефоном в <code>+7...</code> и банком",
+        "Выигравшие: результат 🎉, список «Тебе должны перевести» только с именами (без телефонов и банков)",
+        "Игрок с нулевым результатом: «🤝 Ты остался при своих. Никому ничего не должен»",
+        "Все суммы в формате «X ₽» без копеек",
+        "Parse mode HTML"
+      ],
+      "test_steps": [
+        "Шаг 1: RenderPersonalResult для проигравшего — содержит номер телефона в <code>, название банка",
+        "Шаг 2: RenderPersonalResult для выигравшего — НЕ содержит телефоны должников",
+        "Шаг 3: RenderPersonalResult при balance=0 — сообщение «остался при своих»"
+      ],
+      "dependencies": ["TASK-009"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-037",
+      "category": "ui",
+      "priority": "high",
+      "description": "View: итоговая сводка результатов для публикации в групповом чате",
+      "acceptance_criteria": [
+        "Формат: 🎰 Игра #N завершена / Длительность: Xч Yмин / Банк: Z ₽ / Игроков: N",
+        "Список участников отсортирован по убыванию результата: 🥇🥈🥉 для первых трёх с положительным результатом, ❌ для проигравших",
+        "Раздел «💸 Переводы:» со всеми переводами в формате «Имя → Имя: X ₽»",
+        "Длительность = finished_at - created_at, округлено до минут",
+        "Parse mode HTML"
+      ],
+      "test_steps": [
+        "Шаг 1: RenderGroupSummary с 6 участниками — медали у первых трёх положительных",
+        "Шаг 2: длительность 3 часа 20 минут — «3ч 20мин» в сообщении",
+        "Шаг 3: переводы перечислены корректно"
+      ],
+      "dependencies": ["TASK-034"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-038",
+      "category": "integration",
+      "priority": "critical",
+      "description": "Интеграция: полный цикл игры end-to-end (newgame → join → rebuy → finish → settle)",
+      "acceptance_criteria": [
+        "Создать игру /newgame — хаб появился в группе",
+        "3-4 игрока присоединяются и делают докупы — хаб обновляется после каждого действия",
+        "Завершить игру — личные сообщения отправлены всем участникам",
+        "Все участники вводят и подтверждают финальные данные — расчёт выполнен",
+        "Персональные сообщения с реквизитами и итоговая сводка опубликованы"
+      ],
+      "test_steps": [
+        "Шаг 1: пройти полный флоу с реальными Telegram аккаунтами",
+        "Шаг 2: убедиться, что сумма переводов «от проигравших» = «к выигравшим»",
+        "Шаг 3: проверить, что после расчёта /newgame работает (игра finished)"
+      ],
+      "dependencies": ["TASK-035", "TASK-036", "TASK-037"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-039",
+      "category": "functional",
+      "priority": "high",
+      "description": "Обработка edge cases: идемпотентность кнопок, конкурентные нажатия, отмена на любом шаге",
+      "acceptance_criteria": [
+        "Повторное нажатие «Присоединиться» если уже в игре: alert «Ты уже в игре»",
+        "Два одновременных нажатия «Завершить игру» разными игроками: первый побеждает, второй получает alert «Игра уже завершается»",
+        "Отмена FSM-диалога через /cancel возвращает в StateIdle с сообщением «Отменено»",
+        "Нажатие кнопок старых (завершённых) хабов: alert «Эта игра уже завершена»",
+        "При SQLITE_BUSY: бот отвечает «Попробуй ещё раз» через answerCallbackQuery"
+      ],
+      "test_steps": [
+        "Шаг 1: нажать «Присоединиться» дважды — второй раз alert «Ты уже в игре»",
+        "Шаг 2: отправить /cancel во время ввода телефона — диалог сброшен",
+        "Шаг 3: нажать кнопку хаба завершённой игры — alert «Эта игра уже завершена»"
+      ],
+      "dependencies": ["TASK-038"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-040",
+      "category": "ui",
+      "priority": "medium",
+      "description": "Команды /help и обработка неизвестных команд",
+      "acceptance_criteria": [
+        "/help выводит список доступных команд: /start, /newgame, /game, /name, /edit, /cancel, /help",
+        "Неизвестная команда в личном чате: «Неизвестная команда. Используй /help для списка команд»",
+        "Случайный текст в группе (не команда): бот игнорирует (нет ответа)",
+        "Случайный текст в личке вне FSM-диалога: «Используй команды для управления. /help»",
+        "Команды /start и /help доступны всегда, даже при незавершённом онбординге"
+      ],
+      "test_steps": [
+        "Шаг 1: /help — получить список всех команд",
+        "Шаг 2: /unknown_command — сообщение о неизвестной команде",
+        "Шаг 3: случайное слово в группе — бот не отвечает"
+      ],
+      "dependencies": ["TASK-008"],
+      "status": "pending"
+    }
+  ]
+}
