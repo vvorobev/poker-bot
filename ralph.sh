@@ -28,7 +28,7 @@ run_agent() {
 
     case "$agent" in
         claude)
-            claude --permission-mode acceptEdits -p "$prompt"
+            claude --permission-mode bypassPermissions -p "$prompt"
             ;;
         codex)
             local output_file
@@ -72,7 +72,7 @@ while has_pending_tasks; do
 @tasks.json @progress.txt
 1. Найди фичу с наивысшим приоритетом и работай ТОЛЬКО над ней.
 Это должна быть фича, которую ТЫ считаешь наиболее приоритетной — не обязательно первая в списке.
-2. Проверь, что типы проходят через 'uv run ruff check .' и тесты через 'uv run pytest'.
+2. Проверь, что линтер проходит через 'go vet ./...' и тесты через 'go test ./...'.
 3. Обнови TASK с информацией о выполненной работе.
 4. Добавь свой прогресс в файл progress.txt.
 Используй это, чтобы оставить заметку для следующей итерации работы над кодом.
@@ -100,6 +100,7 @@ EOF
     fi
 
     ((iteration++))
+    break
 done
 
 echo "Все задачи выполнены! Итераций: $((iteration-1))"

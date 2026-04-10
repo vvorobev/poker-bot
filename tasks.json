@@ -47,7 +47,7 @@
         "Шаг 3: убедиться, что все папки из acceptance_criteria существуют"
       ],
       "dependencies": [],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-002",
