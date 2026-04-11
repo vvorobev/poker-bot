@@ -128,6 +128,18 @@ go vet чист, go test ./... проходит.
 
 ---
 
+### [TASK-013] FSM: in-memory хранилище сессий
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Реализован пакет internal/fsm:
+- fsm.go — Store с методами Get/Set/Clear, thread-safe (sync.RWMutex). Session содержит State, Data map[string]any, UpdatedAt. TTL=30 мин, фоновая горутина (evictExpired) чистит устаревшие каждые 5 минут. Stop() закрывает горутину.
+- states.go — константы StateIdle, StateAwaitingPhone, StateAwaitingBank, StateAwaitingChipsInput, StateAwaitingBuyIn
+- fsm_test.go — 5 тестов: Set/Get, Clear, GetMissing, UpdatedAt, concurrent access
+go test -race проходит без data race.
+**Следующий шаг:** TASK-015 (/start handler) — теперь разблокирован (зависит от TASK-008 done, TASK-013 done, TASK-014 done). Параллельно: TASK-019 (GameService.NewGame), TASK-021 (View RenderHub), TASK-022 (Keyboards), TASK-024 (GameService Join/Rebuy) — все critical и разблокированы.
+
+---
+
 ### [TASK-010] TxManager и PlayerRepository
 **Дата:** 2026-04-11
 **Статус:** done
