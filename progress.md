@@ -140,6 +140,20 @@ go test -race проходит без data race.
 
 ---
 
+### [TASK-019 + TASK-024] GameService: NewGame, GetActiveGame, Join, Rebuy, CancelRebuy
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Создан internal/service/game_service.go:
+- `NewGame(ctx, chatID, creatorID, buyIn)` — валидация buyIn (100..100_000), проверка ErrGameAlreadyActive через GetActiveByChatID, создание игры в транзакции, добавление создателя как первого участника через ParticipantRepo.Join
+- `GetActiveGame(ctx, chatID)` — делегирует в GameRepository.GetActiveByChatID
+- `Join(ctx, gameID, playerID)` — проверяет статус active, добавляет участника, возвращает (Game, []Participant)
+- `Rebuy(ctx, gameID, playerID)` — проверяет статус + ErrNotParticipant, инкрементирует rebuy_count
+- `CancelRebuy(ctx, gameID, playerID)` — декрементирует rebuy_count (floor=0 обеспечивается SQL)
+Все методы используют TxManager.RunInTx. Создан game_service_test.go (9 тестов). go vet чист, go test ./... проходит.
+**Следующий шаг:** TASK-015 (/start handler), TASK-020 (/newgame handler), TASK-021 (View RenderHub), TASK-022 (Keyboards) — все critical и разблокированы.
+
+---
+
 ### [TASK-010] TxManager и PlayerRepository
 **Дата:** 2026-04-11
 **Статус:** done
