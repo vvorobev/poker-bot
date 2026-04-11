@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"log/slog"
+	"strings"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -61,6 +62,28 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 		sess, ok := fsmStore.Get(update.Message.From.ID)
 		return ok && sess.State == fsm.StateAwaitingPhone
 	}, phoneH.HandlePhoneText)
+
+	bankH := handlers.NewBankHandler(deps.Players, deps.FSM)
+	// Bank selection callback handler (bank:<name>).
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.CallbackQuery != nil &&
+			strings.HasPrefix(update.CallbackQuery.Data, "bank:")
+	}, bankH.HandleBankCallback)
+	// Custom bank name text input (FSM state=AwaitingBank, bank_custom=true).
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		if update.Message == nil || update.Message.Text == "" {
+			return false
+		}
+		if update.Message.Chat.Type != models.ChatTypePrivate {
+			return false
+		}
+		sess, ok := fsmStore.Get(update.Message.From.ID)
+		if !ok || sess.State != fsm.StateAwaitingBank {
+			return false
+		}
+		customFlag, _ := sess.Data["bank_custom"].(bool)
+		return customFlag
+	}, bankH.HandleBankText)
 
 	return b, nil
 }

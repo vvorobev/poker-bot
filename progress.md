@@ -243,6 +243,19 @@ go build, go vet, go test ./... — чисто.
 
 ---
 
+### [TASK-017] Онбординг: выбор банка и финальное сохранение профиля
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Создан internal/bot/handlers/bank.go с BankHandler:
+- `HandleBankCallback` — обрабатывает callback `bank:<name>`. При выборе "Другой" устанавливает `bank_custom=true` в FSM и запрашивает текстовый ввод. При любом другом банке — вызывает finishRegistration.
+- `HandleBankText` — текстовый хендлер для FSM StateAwaitingBank + bank_custom=true; принимает название банка, вызывает finishRegistration.
+- `finishRegistration` — извлекает phone из FSM, собирает displayName из Telegram first+last name, вызывает PlayerService.RegisterPlayer, очищает FSM, отправляет подтверждение с именем/телефоном/банком.
+Зарегистрированы в bot.go: callback-хендлер через HasPrefix("bank:"), text-хендлер через MatchFunc по состоянию FSM.
+go vet и go test ./... проходят.
+**Следующий шаг:** TASK-018 (/name команда, priority high) или TASK-020 (/newgame handler, priority critical) — оба разблокированы.
+
+---
+
 ### [TASK-010] TxManager и PlayerRepository
 **Дата:** 2026-04-11
 **Статус:** done
