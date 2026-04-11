@@ -113,6 +113,21 @@ go vet чист, go test ./... проходит (13 тестов в storage).
 
 ---
 
+### [TASK-014] PlayerService: валидация телефона, онбординг, профиль
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Создан internal/service/player_service.go:
+- `ValidatePhone(phone string) bool` — regexp `^\+7\d{10}$`, покрыты valid/invalid кейсы
+- `RegisterPlayer(ctx, id, username, displayName, phone, bank)` — делегирует в PlayerRepository.Upsert
+- `GetPlayer(ctx, id)` — делегирует в PlayerRepository.GetByTelegramID
+- `IsRegistered(ctx, id) bool` — обёртка над GetPlayer
+- `UpdateDisplayName(ctx, id, name)` — GetByTelegramID + Upsert
+Создан internal/service/player_service_test.go (6 тестов, пакет service_test, использует реальную SQLite :memory:).
+go vet чист, go test ./... проходит.
+**Следующий шаг:** TASK-013 (FSM) — разблокирован ранее; вместе с TASK-014 разблокирует TASK-015 (/start handler). Параллельно: TASK-019 (GameService), TASK-021 (View hub), TASK-022 (Keyboards), TASK-024 (GameService join/rebuy), TASK-034 (SettlementService.Compute) — все critical и разблокированы.
+
+---
+
 ### [TASK-010] TxManager и PlayerRepository
 **Дата:** 2026-04-11
 **Статус:** done
