@@ -267,6 +267,19 @@ go vet и go test ./... проходят.
 go vet чист, go test ./... проходит.
 **Следующий шаг:** TASK-011 (GameRepository + ParticipantRepository) — разблокирован.
 
+---
+
+### [TASK-020] Хендлер /newgame: запрос бай-ина и создание игры
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Создан internal/bot/handlers/newgame.go с NewGameHandler:
+- `Handle` (/newgame): работает в group и private чатах; незарегистрированным → "Сначала зарегистрируйся через /start"; показывает BuyInKeyboard и переводит FSM в StateAwaitingBuyIn с сохранением game_chat_id (для private чата используется allowedChatID)
+- `HandleBuyInCallback`: обрабатывает "buyin:XXXX" callback; парсит сумму; вызывает createGame
+- `HandleBuyInText`: обрабатывает текстовый ввод при FSM StateAwaitingBuyIn; валидирует и вызывает createGame
+- `createGame`: вызывает GameService.NewGame; при ErrGameAlreadyActive → "В чате уже идёт игра #N. Заверши её перед созданием новой."
+Обновлены Deps (добавлен Games *service.GameService), bot.go (регистрация 3 хендлеров), main.go (wiring GameRepo, ParticipantRepo, TxManager, GameService).
+go vet и go test ./... проходят.
+**Следующий шаг:** TASK-023 (публикация хаба) — теперь разблокирован. Также разблокированы TASK-025 (callback join/rebuy/cancel_rebuy) и TASK-029 (finish callback).
 
 ---
 
@@ -300,14 +313,14 @@ go vet чист, go test ./... проходит.
 
 ---
 
-### [TASK-020] Хендлер /newgame: запрос бай-ина и создание игры
+### [TASK-029] Callback хендлер «finish»: подтверждение и переход к сбору результатов
 **Дата:** 2026-04-11
 **Статус:** done
-**Summary:** Создан internal/bot/handlers/newgame.go с NewGameHandler:
-- `Handle` (/newgame): работает в group и private чатах; незарегистрированным → "Сначала зарегистрируйся через /start"; показывает BuyInKeyboard и переводит FSM в StateAwaitingBuyIn с сохранением game_chat_id (для private чата используется allowedChatID)
-- `HandleBuyInCallback`: обрабатывает "buyin:XXXX" callback; парсит сумму; вызывает createGame
-- `HandleBuyInText`: обрабатывает текстовый ввод при FSM StateAwaitingBuyIn; валидирует и вызывает createGame
-- `createGame`: вызывает GameService.NewGame; при ErrGameAlreadyActive → "В чате уже идёт игра #N. Заверши её перед созданием новой."
-Обновлены Deps (добавлен Games *service.GameService), bot.go (регистрация 3 хендлеров), main.go (wiring GameRepo, ParticipantRepo, TxManager, GameService).
-go vet и go test ./... проходят.
-**Следующий шаг:** TASK-023 (публикация хаба) — теперь разблокирован. Также разблокированы TASK-025 (callback join/rebuy/cancel_rebuy) и TASK-029 (finish callback).
+**Summary:** Реализован `HandleFinish` в `internal/bot/handlers/hub_callbacks.go`:
+- Two-tap confirmation: первый тап сохраняет `finish_confirm_game_id` и `finish_confirm_time` в FSM Data и показывает alert "Точно завершить игру? ..."; второй тап в течение 30 секунд вызывает `GameService.FinishGame`
+- После FinishGame: `updateHub` обновляет хаб в группе (статус переходит в "сбор результатов", ⏳ рядом с каждым участником)
+- `sendCollectResultsMessages`: рассылает личные сообщения всем участникам "🏁 Игра #N завершена! Введи свои финальные данные — напиши /game"
+- Обновлён `NewHubCallbackHandler` — добавлен параметр `*fsm.Store`
+- Зарегистрирован в `bot.go` через `HasPrefix("finish:")`
+- go vet чист, go test ./... проходит
+**Следующий шаг:** TASK-030 (View и FSM: личное сообщение для сбора финальных данных участника) — разблокирован. Параллельно: TASK-033 (SettlementService.Validate), TASK-036 (персональный результат view), TASK-012 (SettlementRepository), TASK-018 (/name), TASK-027 (/game).

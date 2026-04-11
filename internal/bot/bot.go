@@ -64,7 +64,7 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 		return ok && sess.State == fsm.StateAwaitingPhone
 	}, phoneH.HandlePhoneText)
 
-	hubH := handlers.NewHubCallbackHandler(deps.Players, deps.Games)
+	hubH := handlers.NewHubCallbackHandler(deps.Players, deps.Games, deps.FSM)
 	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
 		return update.CallbackQuery != nil &&
 			strings.HasPrefix(update.CallbackQuery.Data, "join:")
@@ -77,6 +77,10 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 		return update.CallbackQuery != nil &&
 			strings.HasPrefix(update.CallbackQuery.Data, "cancel_rebuy:")
 	}, hubH.HandleCancelRebuy)
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.CallbackQuery != nil &&
+			strings.HasPrefix(update.CallbackQuery.Data, "finish:")
+	}, hubH.HandleFinish)
 
 	newGameH := handlers.NewNewGameHandler(deps.Players, deps.Games, deps.FSM, deps.AllowedChatID)
 	b.RegisterHandler(bot.HandlerTypeMessageText, "/newgame", bot.MatchTypeExact, newGameH.Handle)
