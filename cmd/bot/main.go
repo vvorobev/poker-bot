@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	telebot "poker-bot/internal/bot"
 	"poker-bot/internal/config"
 	"poker-bot/internal/logging"
 	"poker-bot/internal/storage"
@@ -35,13 +36,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	b, err := telebot.New(cfg.BotToken)
+	if err != nil {
+		slog.Error("failed to create bot", "err", err)
+		db.Close()
+		os.Exit(1)
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	slog.Info("bot started", "db", cfg.DBPath)
 
-	// Block until signal received
-	<-ctx.Done()
+	// Start long polling — blocks until ctx is cancelled.
+	b.Start(ctx)
+
 	stop()
 
 	// Graceful shutdown with timeout

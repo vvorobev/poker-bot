@@ -94,6 +94,14 @@ go vet чист, go test ./... проходит (13 тестов в storage).
 
 ---
 
+### [TASK-007] Базовый Telegram бот
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Добавлена зависимость github.com/go-telegram/bot v1.20.0. Реализован internal/bot/bot.go: функция New(token) создаёт бота с обработчиком ошибок через slog.Error и регистрирует /ping → "pong". Обновлён cmd/bot/main.go: вызов telebot.New(cfg.BotToken) и b.Start(ctx) для long polling; b.Start блокирует до отмены ctx, после чего graceful shutdown как прежде. go vet чист, go test ./... проходит.
+**Следующий шаг:** TASK-008 (middleware контроля доступа по ALLOWED_CHAT_ID) — разблокирован. Также параллельно доступны TASK-012 (SettlementRepository) и TASK-013 (FSM), TASK-014 (PlayerService).
+
+---
+
 ### [TASK-010] TxManager и PlayerRepository
 **Дата:** 2026-04-11
 **Статус:** done
