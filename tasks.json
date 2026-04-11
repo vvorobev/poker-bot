@@ -66,7 +66,9 @@
         "Шаг 2: убрать TELEGRAM_BOT_TOKEN из .env, вызвать config.Load() — вернулась ошибка",
         "Шаг 3: проверить, что DB_PATH == ./poker.db при пустом .env для этого поля"
       ],
-      "dependencies": ["TASK-001"],
+      "dependencies": [
+        "TASK-001"
+      ],
       "status": "done"
     },
     {
@@ -86,7 +88,9 @@
         "Шаг 2: убедиться, что файл test.log создан и содержит JSON-строку с полем msg=test",
         "Шаг 3: удалить test.log после теста"
       ],
-      "dependencies": ["TASK-001"],
+      "dependencies": [
+        "TASK-001"
+      ],
       "status": "done"
     },
     {
@@ -106,8 +110,10 @@
         "Шаг 2: вызвать RunMigrations, затем PRAGMA journal_mode — ответ должен быть wal",
         "Шаг 3: вызвать RunMigrations повторно — ошибок нет"
       ],
-      "dependencies": ["TASK-001"],
-      "status": "pending"
+      "dependencies": [
+        "TASK-001"
+      ],
+      "status": "done"
     },
     {
       "id": "TASK-005",
@@ -126,8 +132,10 @@
         "Шаг 2: выполнить SELECT name FROM sqlite_master WHERE type='table' — все 4 таблицы есть",
         "Шаг 3: попытаться вставить game_participant с несуществующим game_id — получить ошибку FK"
       ],
-      "dependencies": ["TASK-004"],
-      "status": "pending"
+      "dependencies": [
+        "TASK-004"
+      ],
+      "status": "done"
     },
     {
       "id": "TASK-006",
@@ -146,7 +154,11 @@
         "Шаг 2: убедиться, что бот завершился без паники",
         "Шаг 3: убедиться, что в логах есть \"bot stopped gracefully\""
       ],
-      "dependencies": ["TASK-002", "TASK-003", "TASK-004"],
+      "dependencies": [
+        "TASK-002",
+        "TASK-003",
+        "TASK-004"
+      ],
       "status": "pending"
     },
     {
@@ -166,7 +178,9 @@
         "Шаг 2: отправить /ping в личный чат боту — получить \"pong\"",
         "Шаг 3: отправить SIGINT — бот завершился без ошибок"
       ],
-      "dependencies": ["TASK-006"],
+      "dependencies": [
+        "TASK-006"
+      ],
       "status": "pending"
     },
     {
@@ -186,7 +200,9 @@
         "Шаг 2: отправить /ping с аккаунта из группы — получить \"pong\"",
         "Шаг 3: убедиться, что в логах второй запрос не вызывает getChatMember (кэш работает)"
       ],
-      "dependencies": ["TASK-007"],
+      "dependencies": [
+        "TASK-007"
+      ],
       "status": "pending"
     },
     {
@@ -206,7 +222,9 @@
         "Шаг 2: убедиться через grep, что domain не импортирует internal/*",
         "Шаг 3: проверить, что errors.Is(ErrNotFound, ErrNotFound) == true"
       ],
-      "dependencies": ["TASK-001"],
+      "dependencies": [
+        "TASK-001"
+      ],
       "status": "done"
     },
     {
@@ -226,7 +244,10 @@
         "Шаг 2: получить игрока через GetByTelegramID — данные совпадают",
         "Шаг 3: вызвать GetByTelegramID с несуществующим ID — вернуть domain.ErrNotFound"
       ],
-      "dependencies": ["TASK-005", "TASK-009"],
+      "dependencies": [
+        "TASK-005",
+        "TASK-009"
+      ],
       "status": "pending"
     },
     {
@@ -246,7 +267,9 @@
         "Шаг 2: Join игрока, повторный Join того же игрока — ErrAlreadyJoined",
         "Шаг 3: DecrementRebuy при rebuy_count=0 — счётчик остаётся 0, нет ошибки"
       ],
-      "dependencies": ["TASK-010"],
+      "dependencies": [
+        "TASK-010"
+      ],
       "status": "pending"
     },
     {
@@ -265,7 +288,9 @@
         "Шаг 2: вызвать ListByGame — вернуть те же 2 перевода",
         "Шаг 3: SaveAll с пустым слайсом — нет ошибки, ListByGame вернул 0 записей"
       ],
-      "dependencies": ["TASK-011"],
+      "dependencies": [
+        "TASK-011"
+      ],
       "status": "pending"
     },
     {
@@ -285,7 +310,9 @@
         "Шаг 2: Clear(1), Get(1) — вернуть nil, false",
         "Шаг 3: go test -race ./internal/fsm/ — нет data race"
       ],
-      "dependencies": ["TASK-001"],
+      "dependencies": [
+        "TASK-001"
+      ],
       "status": "pending"
     },
     {
@@ -305,7 +332,9 @@
         "Шаг 2: ValidatePhone(\"89991234567\") == false, ValidatePhone(\"+7abc\") == false",
         "Шаг 3: RegisterPlayer → GetPlayer — данные совпадают"
       ],
-      "dependencies": ["TASK-010"],
+      "dependencies": [
+        "TASK-010"
+      ],
       "status": "pending"
     },
     {
@@ -325,7 +354,11 @@
         "Шаг 2: отправить /start зарегистрированному пользователю — получить его данные",
         "Шаг 3: нажать «Ввести номер вручную» — следующее текстовое сообщение интерпретируется как телефон"
       ],
-      "dependencies": ["TASK-008", "TASK-013", "TASK-014"],
+      "dependencies": [
+        "TASK-008",
+        "TASK-013",
+        "TASK-014"
+      ],
       "status": "pending"
     },
     {
@@ -345,7 +378,9 @@
         "Шаг 2: ввести \"abc\" как номер — бот просит ввести снова",
         "Шаг 3: ввести \"+79991234567\" — бот показывает клавиатуру банков"
       ],
-      "dependencies": ["TASK-015"],
+      "dependencies": [
+        "TASK-015"
+      ],
       "status": "pending"
     },
     {
@@ -365,7 +400,9 @@
         "Шаг 2: нажать «Другой», ввести «Мой банк» — профиль сохранён с банком «Мой банк»",
         "Шаг 3: повторный /start — показывает сохранённые данные (не перезаписывает)"
       ],
-      "dependencies": ["TASK-016"],
+      "dependencies": [
+        "TASK-016"
+      ],
       "status": "pending"
     },
     {
@@ -385,7 +422,9 @@
         "Шаг 2: /start — в данных отображается «Вася»",
         "Шаг 3: /name без аргументов — показывает текущее имя"
       ],
-      "dependencies": ["TASK-017"],
+      "dependencies": [
+        "TASK-017"
+      ],
       "status": "pending"
     },
     {
@@ -405,7 +444,9 @@
         "Шаг 2: повторный NewGame в том же chatID — ErrGameAlreadyActive",
         "Шаг 3: NewGame с buyIn=50 — ошибка валидации"
       ],
-      "dependencies": ["TASK-011"],
+      "dependencies": [
+        "TASK-011"
+      ],
       "status": "pending"
     },
     {
@@ -425,7 +466,10 @@
         "Шаг 2: /newgame повторно — сообщение об уже активной игре",
         "Шаг 3: /newgame с вводом нечислового значения — бот просит ввести снова"
       ],
-      "dependencies": ["TASK-019", "TASK-014"],
+      "dependencies": [
+        "TASK-019",
+        "TASK-014"
+      ],
       "status": "pending"
     },
     {
@@ -445,7 +489,9 @@
         "Шаг 2: проверить, что банк корректно считается: 3 игрока, buy_in=1000, rebuy_count=[0,1,2] → банк 6000 ₽",
         "Шаг 3: RenderHub для статуса CollectingResults — в строке «сбор результатов»"
       ],
-      "dependencies": ["TASK-009"],
+      "dependencies": [
+        "TASK-009"
+      ],
       "status": "pending"
     },
     {
@@ -465,7 +511,9 @@
         "Шаг 2: go build ./internal/bot/keyboards/ — нет ошибок",
         "Шаг 3: BankKeyboard() содержит ровно 8 кнопок"
       ],
-      "dependencies": ["TASK-001"],
+      "dependencies": [
+        "TASK-001"
+      ],
       "status": "pending"
     },
     {
@@ -485,7 +533,11 @@
         "Шаг 2: hub_message_id в БД совпадает с ID реального сообщения",
         "Шаг 3: /newgame из личного чата — хаб всё равно публикуется в группу"
       ],
-      "dependencies": ["TASK-020", "TASK-021", "TASK-022"],
+      "dependencies": [
+        "TASK-020",
+        "TASK-021",
+        "TASK-022"
+      ],
       "status": "pending"
     },
     {
@@ -505,7 +557,10 @@
         "Шаг 2: Rebuy 3 раза, CancelRebuy 1 раз — rebuy_count = 2",
         "Шаг 3: CancelRebuy при rebuy_count=0 — rebuy_count остаётся 0"
       ],
-      "dependencies": ["TASK-011", "TASK-010"],
+      "dependencies": [
+        "TASK-011",
+        "TASK-010"
+      ],
       "status": "pending"
     },
     {
@@ -525,7 +580,10 @@
         "Шаг 2: нажать «Докупиться» — счётчик докупов увеличился на 1 в хабе",
         "Шаг 3: незарегистрированный пользователь нажимает «Присоединиться» — alert с инструкцией"
       ],
-      "dependencies": ["TASK-024", "TASK-023"],
+      "dependencies": [
+        "TASK-024",
+        "TASK-023"
+      ],
       "status": "pending"
     },
     {
@@ -545,7 +603,10 @@
         "Шаг 2: симулировать ответ 429 с retry_after=2 — повтор через 2 секунды",
         "Шаг 3: go test -race ./internal/bot/hub/ — нет data race"
       ],
-      "dependencies": ["TASK-021", "TASK-022"],
+      "dependencies": [
+        "TASK-021",
+        "TASK-022"
+      ],
       "status": "pending"
     },
     {
@@ -564,7 +625,9 @@
         "Шаг 2: нажать «Докупиться» в личном чате — хаб в группе обновился",
         "Шаг 3: при отсутствии игры /game — сообщение «Активных игр нет»"
       ],
-      "dependencies": ["TASK-025"],
+      "dependencies": [
+        "TASK-025"
+      ],
       "status": "pending"
     },
     {
@@ -584,7 +647,9 @@
         "Шаг 2: FinishGame повторно — ErrGameNotActive",
         "Шаг 3: FinishGame не-участником — ErrNotParticipant"
       ],
-      "dependencies": ["TASK-024"],
+      "dependencies": [
+        "TASK-024"
+      ],
       "status": "pending"
     },
     {
@@ -604,7 +669,11 @@
         "Шаг 2: нажать «Завершить» второй раз — игра перешла в collecting_results, хаб обновился",
         "Шаг 3: каждый участник получил личное сообщение с запросом финальных данных"
       ],
-      "dependencies": ["TASK-028", "TASK-013", "TASK-021"],
+      "dependencies": [
+        "TASK-028",
+        "TASK-013",
+        "TASK-021"
+      ],
       "status": "pending"
     },
     {
@@ -624,7 +693,10 @@
         "Шаг 2: нажать «Ввести в фишках», ввести 1500 — появляется сообщение подтверждения",
         "Шаг 3: ввести «abc» — бот просит ввести число"
       ],
-      "dependencies": ["TASK-029", "TASK-013"],
+      "dependencies": [
+        "TASK-029",
+        "TASK-013"
+      ],
       "status": "pending"
     },
     {
@@ -644,7 +716,9 @@
         "Шаг 2: нажать «Изменить» — вернуться к вводу данных",
         "Шаг 3: повторное нажатие «Подтвердить» — уведомление «Ты уже подтвердил данные»"
       ],
-      "dependencies": ["TASK-030"],
+      "dependencies": [
+        "TASK-030"
+      ],
       "status": "pending"
     },
     {
@@ -664,7 +738,9 @@
         "Шаг 2: ввести другое значение и подтвердить — данные обновились в БД",
         "Шаг 3: /edit после финального расчёта — сообщение о невозможности изменения"
       ],
-      "dependencies": ["TASK-031"],
+      "dependencies": [
+        "TASK-031"
+      ],
       "status": "pending"
     },
     {
@@ -684,7 +760,9 @@
         "Шаг 2: Validate где Σfinal_chips != ожидаемый банк — ErrBankMismatch с правильными полями",
         "Шаг 3: после ввода всех результатов при расхождении — в группе появляется сообщение ⚠️"
       ],
-      "dependencies": ["TASK-028"],
+      "dependencies": [
+        "TASK-028"
+      ],
       "status": "pending"
     },
     {
@@ -704,7 +782,9 @@
         "Шаг 2: все игроки в нуле — пустой слайс переводов",
         "Шаг 3: один игрок выиграл, один проиграл — ровно 1 перевод"
       ],
-      "dependencies": ["TASK-009"],
+      "dependencies": [
+        "TASK-009"
+      ],
       "status": "pending"
     },
     {
@@ -724,7 +804,12 @@
         "Шаг 2: каждый участник получил личное сообщение с результатом",
         "Шаг 3: в группе опубликована итоговая сводка"
       ],
-      "dependencies": ["TASK-033", "TASK-034", "TASK-012", "TASK-031"],
+      "dependencies": [
+        "TASK-033",
+        "TASK-034",
+        "TASK-012",
+        "TASK-031"
+      ],
       "status": "pending"
     },
     {
@@ -744,7 +829,9 @@
         "Шаг 2: RenderPersonalResult для выигравшего — НЕ содержит телефоны должников",
         "Шаг 3: RenderPersonalResult при balance=0 — сообщение «остался при своих»"
       ],
-      "dependencies": ["TASK-009"],
+      "dependencies": [
+        "TASK-009"
+      ],
       "status": "pending"
     },
     {
@@ -764,7 +851,9 @@
         "Шаг 2: длительность 3 часа 20 минут — «3ч 20мин» в сообщении",
         "Шаг 3: переводы перечислены корректно"
       ],
-      "dependencies": ["TASK-034"],
+      "dependencies": [
+        "TASK-034"
+      ],
       "status": "pending"
     },
     {
@@ -784,7 +873,11 @@
         "Шаг 2: убедиться, что сумма переводов «от проигравших» = «к выигравшим»",
         "Шаг 3: проверить, что после расчёта /newgame работает (игра finished)"
       ],
-      "dependencies": ["TASK-035", "TASK-036", "TASK-037"],
+      "dependencies": [
+        "TASK-035",
+        "TASK-036",
+        "TASK-037"
+      ],
       "status": "pending"
     },
     {
@@ -804,7 +897,9 @@
         "Шаг 2: отправить /cancel во время ввода телефона — диалог сброшен",
         "Шаг 3: нажать кнопку хаба завершённой игры — alert «Эта игра уже завершена»"
       ],
-      "dependencies": ["TASK-038"],
+      "dependencies": [
+        "TASK-038"
+      ],
       "status": "pending"
     },
     {
@@ -824,7 +919,9 @@
         "Шаг 2: /unknown_command — сообщение о неизвестной команде",
         "Шаг 3: случайное слово в группе — бот не отвечает"
       ],
-      "dependencies": ["TASK-008"],
+      "dependencies": [
+        "TASK-008"
+      ],
       "status": "pending"
     }
   ]
