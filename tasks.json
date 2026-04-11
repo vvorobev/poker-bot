@@ -67,7 +67,7 @@
         "Шаг 3: проверить, что DB_PATH == ./poker.db при пустом .env для этого поля"
       ],
       "dependencies": ["TASK-001"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-003",
@@ -207,7 +207,7 @@
         "Шаг 3: проверить, что errors.Is(ErrNotFound, ErrNotFound) == true"
       ],
       "dependencies": ["TASK-001"],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "TASK-010",
