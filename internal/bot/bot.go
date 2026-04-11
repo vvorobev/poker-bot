@@ -7,13 +7,22 @@ import (
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
+	"poker-bot/internal/bot/handlers"
 	"poker-bot/internal/bot/middleware"
+	"poker-bot/internal/fsm"
+	"poker-bot/internal/service"
 )
 
+// Deps holds the dependencies injected into the bot's handlers.
+type Deps struct {
+	AllowedChatID int64
+	Players       *service.PlayerService
+	FSM           *fsm.Store
+}
+
 // New creates and configures a Telegram bot instance.
-// allowedChatID is the group chat ID that the bot is restricted to.
-func New(token string, allowedChatID int64) (*bot.Bot, error) {
-	auth := middleware.NewAuth(allowedChatID)
+func New(token string, deps Deps) (*bot.Bot, error) {
+	auth := middleware.NewAuth(deps.AllowedChatID)
 
 	opts := []bot.Option{
 		bot.WithErrorsHandler(func(err error) {
@@ -28,6 +37,11 @@ func New(token string, allowedChatID int64) (*bot.Bot, error) {
 	}
 
 	b.RegisterHandler(bot.HandlerTypeMessageText, "/ping", bot.MatchTypeExact, pingHandler)
+
+	startH := handlers.NewStartHandler(deps.Players, deps.FSM)
+	b.RegisterHandler(bot.HandlerTypeMessageText, "/start", bot.MatchTypeExact, startH.Handle)
+	b.RegisterHandler(bot.HandlerTypeMessageText, handlers.ManualPhoneButtonText, bot.MatchTypeExact, startH.HandleManualPhone)
+	b.RegisterHandler(bot.HandlerTypeCallbackQueryData, "start:ok", bot.MatchTypeExact, handlers.HandleStartOK)
 
 	return b, nil
 }

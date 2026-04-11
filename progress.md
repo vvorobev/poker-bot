@@ -215,6 +215,21 @@ go vet чист, go test ./... проходит.
 
 ---
 
+### [TASK-015] Хендлер /start: онбординг и профиль игрока
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Реализован TASK-015:
+- internal/bot/handlers/start.go — StartHandler с двумя методами:
+  - `Handle` (/start): только private chat; зарегистрированным → профиль (имя/телефон/банк) + inline "Ок"; незарегистрированным → приветствие + ReplyKeyboard ("📱 Поделиться контактом" с RequestContact=true, "✏️ Ввести номер вручную")
+  - `HandleManualPhone` (обработчик текста "✏️ Ввести номер вручную"): устанавливает FSM = StateAwaitingPhone, убирает ReplyKeyboard, просит ввести номер
+  - `HandleStartOK`: answerCallbackQuery для кнопки "Ок"
+- internal/bot/bot.go — введён Deps struct (AllowedChatID, Players, FSM); зарегистрированы все три хендлера
+- cmd/bot/main.go — wiring: PlayerRepo → PlayerService → fsm.Store → Deps → telebot.New; fsmStore.Stop() при shutdown
+go build, go vet, go test ./... — чисто.
+**Следующий шаг:** TASK-016 (онбординг: получение и валидация номера телефона — contact handler + text handler для StateAwaitingPhone) — теперь разблокирован.
+
+---
+
 ### [TASK-010] TxManager и PlayerRepository
 **Дата:** 2026-04-11
 **Статус:** done

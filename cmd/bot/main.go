@@ -10,7 +10,9 @@ import (
 
 	telebot "poker-bot/internal/bot"
 	"poker-bot/internal/config"
+	"poker-bot/internal/fsm"
 	"poker-bot/internal/logging"
+	"poker-bot/internal/service"
 	"poker-bot/internal/storage"
 )
 
@@ -36,7 +38,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	b, err := telebot.New(cfg.BotToken, cfg.AllowedChatID)
+	playerRepo := storage.NewPlayerRepo(db)
+	playerSvc := service.NewPlayerService(playerRepo)
+	fsmStore := fsm.NewStore()
+
+	deps := telebot.Deps{
+		AllowedChatID: cfg.AllowedChatID,
+		Players:       playerSvc,
+		FSM:           fsmStore,
+	}
+
+	b, err := telebot.New(cfg.BotToken, deps)
 	if err != nil {
 		slog.Error("failed to create bot", "err", err)
 		db.Close()
@@ -52,6 +64,8 @@ func main() {
 	b.Start(ctx)
 
 	stop()
+
+	fsmStore.Stop()
 
 	// Graceful shutdown with timeout
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
