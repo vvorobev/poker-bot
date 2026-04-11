@@ -18,6 +18,7 @@ import (
 type Deps struct {
 	AllowedChatID int64
 	Players       *service.PlayerService
+	Games         *service.GameService
 	FSM           *fsm.Store
 }
 
@@ -62,6 +63,20 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 		sess, ok := fsmStore.Get(update.Message.From.ID)
 		return ok && sess.State == fsm.StateAwaitingPhone
 	}, phoneH.HandlePhoneText)
+
+	newGameH := handlers.NewNewGameHandler(deps.Players, deps.Games, deps.FSM, deps.AllowedChatID)
+	b.RegisterHandler(bot.HandlerTypeMessageText, "/newgame", bot.MatchTypeExact, newGameH.Handle)
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.CallbackQuery != nil &&
+			strings.HasPrefix(update.CallbackQuery.Data, "buyin:")
+	}, newGameH.HandleBuyInCallback)
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		if update.Message == nil || update.Message.Text == "" {
+			return false
+		}
+		sess, ok := fsmStore.Get(update.Message.From.ID)
+		return ok && sess.State == fsm.StateAwaitingBuyIn
+	}, newGameH.HandleBuyInText)
 
 	bankH := handlers.NewBankHandler(deps.Players, deps.FSM)
 	// Bank selection callback handler (bank:<name>).

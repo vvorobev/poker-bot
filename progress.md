@@ -267,3 +267,17 @@ go vet и go test ./... проходят.
 go vet чист, go test ./... проходит.
 **Следующий шаг:** TASK-011 (GameRepository + ParticipantRepository) — разблокирован.
 
+
+---
+
+### [TASK-020] Хендлер /newgame: запрос бай-ина и создание игры
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Создан internal/bot/handlers/newgame.go с NewGameHandler:
+- `Handle` (/newgame): работает в group и private чатах; незарегистрированным → "Сначала зарегистрируйся через /start"; показывает BuyInKeyboard и переводит FSM в StateAwaitingBuyIn с сохранением game_chat_id (для private чата используется allowedChatID)
+- `HandleBuyInCallback`: обрабатывает "buyin:XXXX" callback; парсит сумму; вызывает createGame
+- `HandleBuyInText`: обрабатывает текстовый ввод при FSM StateAwaitingBuyIn; валидирует и вызывает createGame
+- `createGame`: вызывает GameService.NewGame; при ErrGameAlreadyActive → "В чате уже идёт игра #N. Заверши её перед созданием новой."
+Обновлены Deps (добавлен Games *service.GameService), bot.go (регистрация 3 хендлеров), main.go (wiring GameRepo, ParticipantRepo, TxManager, GameService).
+go vet и go test ./... проходят.
+**Следующий шаг:** TASK-023 (публикация хаба) — теперь разблокирован. Также разблокированы TASK-025 (callback join/rebuy/cancel_rebuy) и TASK-029 (finish callback).

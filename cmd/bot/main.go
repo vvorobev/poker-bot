@@ -39,12 +39,18 @@ func main() {
 	}
 
 	playerRepo := storage.NewPlayerRepo(db)
+	gameRepo := storage.NewGameRepo(db)
+	participantRepo := storage.NewParticipantRepo(db)
+	txManager := storage.NewTxManager(db)
+
 	playerSvc := service.NewPlayerService(playerRepo)
+	gameSvc := service.NewGameService(gameRepo, participantRepo, txManager)
 	fsmStore := fsm.NewStore()
 
 	deps := telebot.Deps{
 		AllowedChatID: cfg.AllowedChatID,
 		Players:       playerSvc,
+		Games:         gameSvc,
 		FSM:           fsmStore,
 	}
 
