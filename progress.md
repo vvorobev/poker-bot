@@ -65,3 +65,17 @@
 **Summary:** Создан internal/storage/migrations/001_init.sql с таблицами players, games, game_participants, settlements. Все FK с ON DELETE RESTRICT, UNIQUE(game_id, player_id) в game_participants. Идемпотентность через CREATE TABLE IF NOT EXISTS. Верифицировано тестами: все 4 таблицы создаются, FK нарушения возвращают ошибку.
 **Следующий шаг:** TASK-006 (graceful shutdown в main.go) — все зависимости (002, 003, 004) теперь done. Затем TASK-007 (telegram bot) → TASK-008 (middleware) → TASK-010 (repositories).
 
+---
+
+### [TASK-006] Graceful shutdown в main.go
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Реализован cmd/bot/main.go с полным graceful shutdown:
+- config.Load() → logging.Setup() → storage.Open() → storage.RunMigrations()
+- signal.NotifyContext с os.Interrupt и syscall.SIGTERM
+- 5-секундный таймаут на завершение через context.WithTimeout
+- db.Close() после остановки polling
+- slog.Info("bot stopped gracefully") в конце
+go vet и go build проходят без ошибок. Тесты в storage пакете проходят (cached).
+**Следующий шаг:** TASK-007 (Telegram bot, go-telegram/bot, long polling, /ping) — разблокирован. TASK-010 (TxManager + PlayerRepository) также разблокирован параллельно.
+
