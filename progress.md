@@ -201,6 +201,20 @@ go vet чист, go test ./... проходит.
 
 ---
 
+### [TASK-028] GameService.FinishGame
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Добавлен метод `FinishGame(ctx, gameID, actorID)` в `internal/service/game_service.go`:
+- Проверяет статус игры (возвращает `ErrGameNotActive` если не `active`)
+- Проверяет участие actorID (возвращает `ErrNotParticipant` если не участник)
+- Переводит игру в `CollectingResults` через `GameRepository.UpdateStatus`
+- Возвращает обновлённую игру и полный список участников для рассылки личных сообщений
+- Всё выполняется в транзакции через `TxManager.RunInTx`
+Добавлены 3 теста (TestFinishGame_Success, TestFinishGame_ErrGameNotActive, TestFinishGame_ErrNotParticipant). go vet и go test ./... проходят.
+**Следующий шаг:** TASK-033 (SettlementService.Validate) и TASK-029 (callback «finish») теперь разблокированы. Параллельно: TASK-012 (SettlementRepository), TASK-015 (/start handler), TASK-020 (/newgame handler).
+
+---
+
 ### [TASK-010] TxManager и PlayerRepository
 **Дата:** 2026-04-11
 **Статус:** done

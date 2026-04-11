@@ -163,6 +163,51 @@ func (s *GameService) Rebuy(ctx context.Context, gameID, playerID int64) (*domai
 	return game, participants, nil
 }
 
+// FinishGame transitions game gameID to CollectingResults status.
+// actorID must be a participant; otherwise ErrNotParticipant is returned.
+// Returns ErrGameNotActive if the game is not currently active.
+// On success returns the updated game and full participant list.
+func (s *GameService) FinishGame(ctx context.Context, gameID, actorID int64) (*domain.Game, []domain.Participant, error) {
+	var (
+		game         *domain.Game
+		participants []domain.Participant
+	)
+	err := s.tx.RunInTx(ctx, func(ctx context.Context) error {
+		g, err := s.games.GetByID(ctx, gameID)
+		if err != nil {
+			return err
+		}
+		if g.Status != domain.GameStatusActive {
+			return domain.ErrGameNotActive
+		}
+
+		_, err = s.participants.GetByGameAndPlayer(ctx, gameID, actorID)
+		if errors.Is(err, domain.ErrNotFound) {
+			return domain.ErrNotParticipant
+		}
+		if err != nil {
+			return err
+		}
+
+		if err := s.games.UpdateStatus(ctx, gameID, domain.GameStatusCollectingResults); err != nil {
+			return fmt.Errorf("GameService.FinishGame update status: %w", err)
+		}
+
+		list, err := s.participants.ListByGame(ctx, gameID)
+		if err != nil {
+			return fmt.Errorf("GameService.FinishGame list: %w", err)
+		}
+		g.Status = domain.GameStatusCollectingResults
+		game = g
+		participants = list
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return game, participants, nil
+}
+
 // CancelRebuy decrements rebuy_count for playerID in gameID (minimum 0).
 // Returns ErrNotParticipant if playerID is not in the game, ErrGameNotActive if game is not active.
 func (s *GameService) CancelRebuy(ctx context.Context, gameID, playerID int64) (*domain.Game, []domain.Participant, error) {
