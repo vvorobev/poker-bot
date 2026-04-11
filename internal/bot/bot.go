@@ -6,14 +6,20 @@ import (
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+
+	"poker-bot/internal/bot/middleware"
 )
 
 // New creates and configures a Telegram bot instance.
-func New(token string) (*bot.Bot, error) {
+// allowedChatID is the group chat ID that the bot is restricted to.
+func New(token string, allowedChatID int64) (*bot.Bot, error) {
+	auth := middleware.NewAuth(allowedChatID)
+
 	opts := []bot.Option{
 		bot.WithErrorsHandler(func(err error) {
 			slog.Error("telegram bot error", "err", err)
 		}),
+		bot.WithMiddlewares(auth.Middleware),
 	}
 
 	b, err := bot.New(token, opts...)

@@ -36,7 +36,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	b, err := telebot.New(cfg.BotToken)
+	b, err := telebot.New(cfg.BotToken, cfg.AllowedChatID)
 	if err != nil {
 		slog.Error("failed to create bot", "err", err)
 		db.Close()

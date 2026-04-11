@@ -102,6 +102,17 @@ go vet чист, go test ./... проходит (13 тестов в storage).
 
 ---
 
+### [TASK-008] Middleware контроля доступа
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Создан пакет internal/bot/middleware/ с файлами:
+- auth.go — Auth middleware: group chat → проверяет chat_id == ALLOWED_CHAT_ID; private chat → вызывает getChatMember(ALLOWED_CHAT_ID, userID), кэширует результат в memberCache с TTL 10 минут. Неавторизованным отправляет "Этот бот работает только в закрытой группе. Обратись к владельцу." Middleware применяется глобально через WithMiddlewares.
+- auth_test.go — 5 unit-тестов: cache TTL/expiry, extractChatInfo для message/private/callback/empty update.
+Обновлён internal/bot/bot.go: New() теперь принимает allowedChatID int64 и применяет auth middleware. Обновлён cmd/bot/main.go: передаёт cfg.AllowedChatID. go vet и go test ./... проходят.
+**Следующий шаг:** TASK-013 (FSM), TASK-014 (PlayerService), TASK-019 (GameService.NewGame), TASK-021 (View hub), TASK-022 (Keyboards) — все разблокированы, можно работать параллельно. TASK-015 (/start handler) теперь разблокирован (зависит от 008, 013, 014).
+
+---
+
 ### [TASK-010] TxManager и PlayerRepository
 **Дата:** 2026-04-11
 **Статус:** done
