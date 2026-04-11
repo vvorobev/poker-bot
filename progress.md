@@ -169,6 +169,23 @@ go vet чист, go test ./... проходит.
 
 ---
 
+### [TASK-021] View: рендеринг сообщения-хаба игры
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Создан internal/bot/views/hub_message.go:
+- `RenderHub(game *domain.Game, participants []domain.Participant, players map[int64]*domain.Player) string` — рендерит HTML-текст хаба
+- Статус: "активна" / "сбор результатов" / "завершена"
+- Банк = Σ(buy_in × (1 + rebuy_count)) — протестировано: 3 игрока с rebuy=[0,1,2] → 6000 ₽
+- При collecting_results/finished — ⏳/✅ вместо bullet points
+- Докупы отображаются как "(×N докуп)"
+- Fallback для неизвестных игроков: "Игрок #N"
+- HTML parse mode, суммы в <b>
+- Добавлен players map[int64]*domain.Player как третий параметр (не указан в task spec, но необходим для отображения имён)
+- Создан hub_message_test.go: 5 тестов, все проходят
+**Следующий шаг:** TASK-022 (Keyboards: HubKeyboard, BankKeyboard, BuyInKeyboard, ChipsInputKeyboard) — разблокирован. Вместе с TASK-021 unblocks TASK-023 (публикация хаба).
+
+---
+
 ### [TASK-010] TxManager и PlayerRepository
 **Дата:** 2026-04-11
 **Статус:** done
