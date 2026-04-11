@@ -285,6 +285,21 @@ go vet и go test ./... проходят.
 
 ---
 
+### [TASK-025] Callback хендлеры: join, rebuy, cancel_rebuy
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Создан internal/bot/handlers/hub_callbacks.go с HubCallbackHandler:
+- `HandleJoin` — обрабатывает "join:N"; проверяет регистрацию (alert "Сначала нажми /start"); вызывает GameService.Join; при ErrAlreadyJoined → "Ты уже в игре"; при ErrGameNotActive → "Эта игра уже завершена"; при успехе → answer "Ты присоединился!" + updateHub
+- `HandleRebuy` — обрабатывает "rebuy:N"; при ErrNotParticipant → "Ты не участник"; при успехе → "Докуп записан!" + updateHub
+- `HandleCancelRebuy` — обрабатывает "cancel_rebuy:N"; при успехе → "Докуп отменён" + updateHub
+- `updateHub` — строит playerMap для всех участников + создателя, рендерит RenderHub, вызывает EditMessageText с HubKeyboard
+- `parseGameIDFromCallback` — извлекает gameID из "action:N" формата
+Зарегистрированы в bot.go через RegisterHandlerMatchFunc по HasPrefix ("join:", "rebuy:", "cancel_rebuy:").
+go vet чист, go test ./... проходит.
+**Следующий шаг:** TASK-029 (finish callback) — разблокирован. TASK-027 (/game команда в личном чате) — также разблокирован.
+
+---
+
 ### [TASK-020] Хендлер /newgame: запрос бай-ина и создание игры
 **Дата:** 2026-04-11
 **Статус:** done
