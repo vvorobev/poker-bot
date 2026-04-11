@@ -12,6 +12,7 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	"poker-bot/internal/bot/keyboards"
+	"poker-bot/internal/bot/views"
 	"poker-bot/internal/domain"
 	"poker-bot/internal/fsm"
 	"poker-bot/internal/service"
@@ -169,9 +170,43 @@ func (h *NewGameHandler) createGame(ctx context.Context, b *bot.Bot, userID, cha
 
 	h.fsmStore.Clear(userID)
 
-	_, _ = b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: chatID,
-		Text:   fmt.Sprintf("✅ Игра #%d создана с бай-ином <b>%d ₽</b>.", game.ID, game.BuyIn),
-		ParseMode: models.ParseModeHTML,
+	// Build players map for hub rendering (only creator at this point).
+	playerMap := make(map[int64]*domain.Player)
+	if p, err := h.players.GetPlayer(ctx, userID); err == nil {
+		playerMap[p.TelegramID] = p
+	}
+
+	// Get the full participant list (creator is the only participant at this point).
+	participants, err := h.games.GetParticipants(ctx, game.ID)
+	if err != nil {
+		slog.Error("newgame: get participants failed", "gameID", game.ID, "err", err)
+		participants = nil
+	}
+
+	hubText := views.RenderHub(game, participants, playerMap)
+
+	// Publish hub to the group chat.
+	hubMsg, sendErr := b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:      gameChatID,
+		Text:        hubText,
+		ParseMode:   models.ParseModeHTML,
+		ReplyMarkup: keyboards.HubKeyboard(game.ID),
 	})
+	if sendErr != nil {
+		slog.Error("newgame: send hub failed", "chatID", gameChatID, "err", sendErr)
+	} else if hubMsg != nil {
+		// Persist hub_message_id so it can be edited later.
+		if setErr := h.games.SetHubMessageID(ctx, game.ID, int64(hubMsg.ID)); setErr != nil {
+			slog.Error("newgame: SetHubMessageID failed", "gameID", game.ID, "err", setErr)
+		}
+	}
+
+	// If /newgame was called from a private chat, also confirm there.
+	if chatID != gameChatID {
+		_, _ = b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:    chatID,
+			Text:      fmt.Sprintf("✅ Игра #%d создана! Хаб опубликован в групповом чате.", game.ID),
+			ParseMode: models.ParseModeHTML,
+		})
+	}
 }

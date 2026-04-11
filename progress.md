@@ -270,6 +270,21 @@ go vet чист, go test ./... проходит.
 
 ---
 
+### [TASK-023] Публикация сообщения-хаба после создания игры
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Модифицирован `internal/bot/handlers/newgame.go` — функция `createGame`:
+- После успешного `GameService.NewGame` загружает участников (`GameService.GetParticipants`) и данные создателя (`PlayerService.GetPlayer`)
+- Рендерит текст хаба через `views.RenderHub(game, participants, playerMap)`
+- Публикует хаб в `gameChatID` (групповой чат) с `keyboards.HubKeyboard(game.ID)` и `parse_mode=HTML`
+- Сохраняет `hub_message_id` через `GameService.SetHubMessageID`
+- Если /newgame вызван из private чата (`chatID != gameChatID`), отправляет краткое подтверждение в private чат
+Добавлены методы `GetParticipants` и `SetHubMessageID` в `internal/service/game_service.go`.
+go vet и go test ./... проходят.
+**Следующий шаг:** TASK-025 (callback join/rebuy/cancel_rebuy — теперь разблокирован) — critical.
+
+---
+
 ### [TASK-020] Хендлер /newgame: запрос бай-ина и создание игры
 **Дата:** 2026-04-11
 **Статус:** done

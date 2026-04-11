@@ -208,6 +208,16 @@ func (s *GameService) FinishGame(ctx context.Context, gameID, actorID int64) (*d
 	return game, participants, nil
 }
 
+// GetParticipants returns the participant list for gameID.
+func (s *GameService) GetParticipants(ctx context.Context, gameID int64) ([]domain.Participant, error) {
+	return s.participants.ListByGame(ctx, gameID)
+}
+
+// SetHubMessageID stores the Telegram message ID of the hub message for gameID.
+func (s *GameService) SetHubMessageID(ctx context.Context, gameID, msgID int64) error {
+	return s.games.SetHubMessageID(ctx, gameID, msgID)
+}
+
 // CancelRebuy decrements rebuy_count for playerID in gameID (minimum 0).
 // Returns ErrNotParticipant if playerID is not in the game, ErrGameNotActive if game is not active.
 func (s *GameService) CancelRebuy(ctx context.Context, gameID, playerID int64) (*domain.Game, []domain.Participant, error) {
