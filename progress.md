@@ -154,6 +154,21 @@ go test -race проходит без data race.
 
 ---
 
+### [TASK-034] SettlementService.Compute: жадный алгоритм минимизации переводов
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Создан internal/service/settlement_service.go:
+- `Compute(participants []domain.Participant, buyIn int64) []domain.Transfer` — жадный алгоритм минимизации переводов
+- Вычисляет баланс каждого участника: FinalChips - buyIn*(1+rebuyCount)
+- Разбивает на debtors (balance<0) и creditors (balance>0), игроки с balance=0 исключаются
+- Сортирует оба списка по убыванию |balance|, жадно сопоставляет наибольшего должника с наибольшим кредитором
+- nil FinalChips трактуется как 0 фишек
+- Создан settlement_service_test.go (6 тестов: 4 игрока с балансами, все в нуле, 1 winner/1 loser, пустые участники, nil FinalChips, upper bound на кол-во переводов)
+go vet чист, go test ./... проходит.
+**Следующий шаг:** TASK-033 (SettlementService.Validate) — разблокирован (зависит от TASK-028), TASK-037 (View group summary) — разблокирован (зависит от TASK-034). Параллельно: TASK-021 (RenderHub), TASK-022 (Keyboards), TASK-028 (GameService.FinishGame), TASK-015 (/start handler).
+
+---
+
 ### [TASK-010] TxManager и PlayerRepository
 **Дата:** 2026-04-11
 **Статус:** done
