@@ -186,6 +186,21 @@ go vet чист, go test ./... проходит.
 
 ---
 
+### [TASK-022] Keyboards: inline-клавиатуры
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Создан пакет internal/bot/keyboards/:
+- keyboards.go — 4 функции: HubKeyboard(gameID int64), BankKeyboard(), BuyInKeyboard(), ChipsInputKeyboard()
+- HubKeyboard: 4 кнопки в 2 строках с callback_data формата "action:game_id" (join, rebuy, cancel_rebuy, finish)
+- BankKeyboard: 8 кнопок (Тинькофф, Сбербанк, Альфа-Банк, ВТБ, Райффайзен, Озон Банк, Яндекс Банк, Другой) с callback "bank:<name>"
+- BuyInKeyboard: 1 кнопка "1000 ₽ (по умолчанию)" с callback "buyin:1000"
+- ChipsInputKeyboard: 2 кнопки "Ввести в фишках" / "Ввести в рублях"
+- keyboards_test.go — 6 тестов, все проходят
+go vet чист, go test ./... проходит.
+**Следующий шаг:** TASK-023 (публикация хаба) и TASK-026 (hub updater) теперь разблокированы. Параллельно: TASK-015 (/start handler), TASK-020 (/newgame handler), TASK-028 (GameService.FinishGame).
+
+---
+
 ### [TASK-010] TxManager и PlayerRepository
 **Дата:** 2026-04-11
 **Статус:** done
