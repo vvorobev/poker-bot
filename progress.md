@@ -79,3 +79,16 @@
 go vet и go build проходят без ошибок. Тесты в storage пакете проходят (cached).
 **Следующий шаг:** TASK-007 (Telegram bot, go-telegram/bot, long polling, /ping) — разблокирован. TASK-010 (TxManager + PlayerRepository) также разблокирован параллельно.
 
+---
+
+### [TASK-010] TxManager и PlayerRepository
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Созданы файлы:
+- internal/service/interfaces.go — интерфейсы TxManager{RunInTx} и PlayerRepository{GetByTelegramID, Upsert}
+- internal/storage/tx.go — TxManager через context-injection: *sql.Tx хранится в ctx по приватному ключу txKey{}; extractDB() возвращает tx из ctx или db; RunInTx делает commit/rollback с recover для паник
+- internal/storage/player_repo.go — PlayerRepo: GetByTelegramID возвращает domain.ErrNotFound при sql.ErrNoRows; Upsert использует INSERT ... ON CONFLICT DO UPDATE; оба метода используют extractDB()
+- internal/storage/player_repo_test.go — 5 тестов: Upsert+Get, ErrNotFound, обновление через Upsert, commit транзакции, rollback транзакции
+go vet чист, go test ./... проходит.
+**Следующий шаг:** TASK-011 (GameRepository + ParticipantRepository) — разблокирован.
+
