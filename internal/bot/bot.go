@@ -43,6 +43,25 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 	b.RegisterHandler(bot.HandlerTypeMessageText, handlers.ManualPhoneButtonText, bot.MatchTypeExact, startH.HandleManualPhone)
 	b.RegisterHandler(bot.HandlerTypeCallbackQueryData, "start:ok", bot.MatchTypeExact, handlers.HandleStartOK)
 
+	phoneH := handlers.NewPhoneHandler(deps.Players, deps.FSM)
+	// Contact sharing button handler.
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.Message != nil && update.Message.Contact != nil &&
+			update.Message.Chat.Type == models.ChatTypePrivate
+	}, phoneH.HandleContact)
+	// Manual phone text input handler (active when FSM is in StateAwaitingPhone).
+	fsmStore := deps.FSM
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		if update.Message == nil || update.Message.Text == "" {
+			return false
+		}
+		if update.Message.Chat.Type != models.ChatTypePrivate {
+			return false
+		}
+		sess, ok := fsmStore.Get(update.Message.From.ID)
+		return ok && sess.State == fsm.StateAwaitingPhone
+	}, phoneH.HandlePhoneText)
+
 	return b, nil
 }
 

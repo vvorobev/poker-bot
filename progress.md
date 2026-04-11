@@ -230,6 +230,19 @@ go build, go vet, go test ./... — чисто.
 
 ---
 
+### [TASK-016] Онбординг: телефон (contact + ручной ввод)
+**Дата:** 2026-04-11
+**Статус:** done
+**Summary:** Создан internal/bot/handlers/phone.go с PhoneHandler:
+- `HandleContact` — принимает message.Contact, нормализует номер через `normalizePhone` (добавляет "+" если отсутствует), валидирует через `service.ValidatePhone`; при невалидном → просит ввести вручную; при валидном → сохраняет в FSM Data["phone"], переводит в StateAwaitingBank, показывает BankKeyboard
+- `HandlePhoneText` — текстовый хендлер для FSM StateAwaitingPhone; валидирует введённый номер; при ошибке → просит повторить в формате +7XXXXXXXXXX; при успехе → аналогично HandleContact
+- `normalizePhone` — добавляет "+" к номеру если не начинается с "+"
+Зарегистрированы в bot.go через `RegisterHandlerMatchFunc`: contact-хендлер по `update.Message.Contact != nil`, text-хендлер по FSM-состоянию `StateAwaitingPhone`.
+Добавлен phone_test.go (тест normalizePhone). go vet и go test ./... проходят.
+**Следующий шаг:** TASK-017 (выбор банка + финальное сохранение профиля) — теперь разблокирован.
+
+---
+
 ### [TASK-010] TxManager и PlayerRepository
 **Дата:** 2026-04-11
 **Статус:** done
