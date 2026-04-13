@@ -21,6 +21,7 @@ var botCommands = []models.BotCommand{
 	{Command: "name", Description: "Изменить отображаемое имя"},
 	{Command: "edit", Description: "Изменить введённые данные"},
 	{Command: "cancel", Description: "Отменить текущее действие"},
+	{Command: "help", Description: "Список команд"},
 }
 
 // Deps holds the dependencies injected into the bot's handlers.
@@ -149,6 +150,9 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 	cancelH := handlers.NewCancelHandler(deps.FSM)
 	b.RegisterHandler(bot.HandlerTypeMessageText, "/cancel", bot.MatchTypeExact, cancelH.Handle)
 
+	helpH := handlers.NewHelpHandler()
+	b.RegisterHandler(bot.HandlerTypeMessageText, "/help", bot.MatchTypeExact, helpH.Handle)
+
 	bankH := handlers.NewBankHandler(deps.Players, deps.FSM)
 	// Bank selection callback handler (bank:<name>).
 	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
@@ -170,6 +174,11 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 		customFlag, _ := sess.Data["bank_custom"].(bool)
 		return customFlag
 	}, bankH.HandleBankText)
+
+	// Fallback handlers — must be registered last (first-match semantics).
+	fallbackH := handlers.NewFallbackHandler(deps.FSM)
+	b.RegisterHandlerMatchFunc(handlers.MatchUnknownCommand, fallbackH.HandleUnknownCommand)
+	b.RegisterHandlerMatchFunc(fallbackH.MatchPlainTextFallback(fsmStore), fallbackH.HandlePlainText)
 
 	if _, err := b.SetMyCommands(context.Background(), &bot.SetMyCommandsParams{
 		Commands: botCommands,

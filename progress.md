@@ -506,3 +506,19 @@ go vet чист, go test ./... проходит.
 - `internal/bot/bot.go`: зарегистрирован `/edit` (MatchTypeExact); добавлен в `botCommands`
 - go vet чист, go test ./... все проходят
 **Следующий шаг:** TASK-040 (/help + unknown commands — medium priority, последняя pending задача).
+
+---
+
+### [TASK-040] Команды /help и обработка неизвестных команд
+**Дата:** 2026-04-13
+**Статус:** done
+**Summary:**
+- `internal/bot/handlers/help.go`: новый файл — `HelpHandler.Handle` (отправляет список 7 команд в HTML), `FallbackHandler` с двумя методами:
+  - `HandleUnknownCommand` — ответ «Неизвестная команда. Используй /help для списка команд.»
+  - `HandlePlainText` — ответ «Используй команды для управления. /help»
+  - `MatchUnknownCommand` (пакетная функция) — match func для /command в private chat
+  - `MatchPlainTextFallback` — match func для plain text в private chat, только когда FSM state == StateIdle
+- `internal/bot/bot.go`: зарегистрирован `/help` (MatchTypeExact); добавлен в `botCommands` («Список команд»); fallback handlers зарегистрированы ПОСЛЕДНИМИ через `RegisterHandlerMatchFunc` (first-match semantics гарантирует, что точные хендлеры срабатывают первыми)
+- Группа: случайный текст игнорируется (match func возвращает false для non-private чатов)
+- go vet чист, go test ./... все проходят (0 новых тестов, логика тривиальная)
+**Все задачи выполнены. TASK-040 — последняя pending задача.**
