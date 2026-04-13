@@ -16,7 +16,8 @@ func newTestGameSvc(t *testing.T) *service.GameService {
 	games := storage.NewGameRepo(db)
 	participants := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
-	return service.NewGameService(games, participants, tx)
+	settlements := storage.NewSettlementRepo(db)
+	return service.NewGameService(games, participants, settlements, tx)
 }
 
 // registerPlayer is a helper to register a player in the test DB via PlayerService.
@@ -32,7 +33,7 @@ func TestNewGame_Success(t *testing.T) {
 	participants := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
 	playerRepo := storage.NewPlayerRepo(db)
-	svc := service.NewGameService(games, participants, tx)
+	svc := service.NewGameService(games, participants, storage.NewSettlementRepo(db), tx)
 	ctx := context.Background()
 
 	// Register creator
@@ -71,7 +72,7 @@ func TestNewGame_ErrGameAlreadyActive(t *testing.T) {
 	participants := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
 	playerRepo := storage.NewPlayerRepo(db)
-	svc := service.NewGameService(games, participants, tx)
+	svc := service.NewGameService(games, participants, storage.NewSettlementRepo(db), tx)
 	ctx := context.Background()
 
 	if err := playerRepo.Upsert(ctx, testPlayer(1002)); err != nil {
@@ -94,7 +95,7 @@ func TestNewGame_BuyInValidation(t *testing.T) {
 	participants := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
 	playerRepo := storage.NewPlayerRepo(db)
-	svc := service.NewGameService(games, participants, tx)
+	svc := service.NewGameService(games, participants, storage.NewSettlementRepo(db), tx)
 	ctx := context.Background()
 
 	if err := playerRepo.Upsert(ctx, testPlayer(1003)); err != nil {
@@ -119,7 +120,7 @@ func TestGetActiveGame(t *testing.T) {
 	participants := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
 	playerRepo := storage.NewPlayerRepo(db)
-	svc := service.NewGameService(games, participants, tx)
+	svc := service.NewGameService(games, participants, storage.NewSettlementRepo(db), tx)
 	ctx := context.Background()
 
 	// No game yet
@@ -150,7 +151,7 @@ func TestJoin_Success(t *testing.T) {
 	parts := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
 	playerRepo := storage.NewPlayerRepo(db)
-	svc := service.NewGameService(games, parts, tx)
+	svc := service.NewGameService(games, parts, storage.NewSettlementRepo(db), tx)
 	ctx := context.Background()
 
 	if err := playerRepo.Upsert(ctx, testPlayer(2001)); err != nil {
@@ -177,7 +178,7 @@ func TestJoin_ErrAlreadyJoined(t *testing.T) {
 	parts := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
 	playerRepo := storage.NewPlayerRepo(db)
-	svc := service.NewGameService(games, parts, tx)
+	svc := service.NewGameService(games, parts, storage.NewSettlementRepo(db), tx)
 	ctx := context.Background()
 
 	if err := playerRepo.Upsert(ctx, testPlayer(3001)); err != nil {
@@ -199,7 +200,7 @@ func TestRebuyAndCancelRebuy(t *testing.T) {
 	parts := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
 	playerRepo := storage.NewPlayerRepo(db)
-	svc := service.NewGameService(games, parts, tx)
+	svc := service.NewGameService(games, parts, storage.NewSettlementRepo(db), tx)
 	ctx := context.Background()
 
 	if err := playerRepo.Upsert(ctx, testPlayer(4001)); err != nil {
@@ -231,7 +232,7 @@ func TestCancelRebuy_FloorAtZero(t *testing.T) {
 	parts := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
 	playerRepo := storage.NewPlayerRepo(db)
-	svc := service.NewGameService(games, parts, tx)
+	svc := service.NewGameService(games, parts, storage.NewSettlementRepo(db), tx)
 	ctx := context.Background()
 
 	if err := playerRepo.Upsert(ctx, testPlayer(5001)); err != nil {
@@ -256,7 +257,7 @@ func TestRebuy_ErrNotParticipant(t *testing.T) {
 	parts := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
 	playerRepo := storage.NewPlayerRepo(db)
-	svc := service.NewGameService(games, parts, tx)
+	svc := service.NewGameService(games, parts, storage.NewSettlementRepo(db), tx)
 	ctx := context.Background()
 
 	if err := playerRepo.Upsert(ctx, testPlayer(6001)); err != nil {
@@ -279,7 +280,7 @@ func TestFinishGame_Success(t *testing.T) {
 	parts := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
 	playerRepo := storage.NewPlayerRepo(db)
-	svc := service.NewGameService(games, parts, tx)
+	svc := service.NewGameService(games, parts, storage.NewSettlementRepo(db), tx)
 	ctx := context.Background()
 
 	if err := playerRepo.Upsert(ctx, testPlayer(7001)); err != nil {
@@ -314,7 +315,7 @@ func TestFinishGame_ErrGameNotActive(t *testing.T) {
 	parts := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
 	playerRepo := storage.NewPlayerRepo(db)
-	svc := service.NewGameService(games, parts, tx)
+	svc := service.NewGameService(games, parts, storage.NewSettlementRepo(db), tx)
 	ctx := context.Background()
 
 	if err := playerRepo.Upsert(ctx, testPlayer(8001)); err != nil {
@@ -337,7 +338,7 @@ func TestFinishGame_ErrNotParticipant(t *testing.T) {
 	parts := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
 	playerRepo := storage.NewPlayerRepo(db)
-	svc := service.NewGameService(games, parts, tx)
+	svc := service.NewGameService(games, parts, storage.NewSettlementRepo(db), tx)
 	ctx := context.Background()
 
 	if err := playerRepo.Upsert(ctx, testPlayer(9001)); err != nil {
@@ -358,7 +359,7 @@ func TestSubmitResult_Success(t *testing.T) {
 	parts := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
 	playerRepo := storage.NewPlayerRepo(db)
-	svc := service.NewGameService(games, parts, tx)
+	svc := service.NewGameService(games, parts, storage.NewSettlementRepo(db), tx)
 	ctx := context.Background()
 
 	_ = playerRepo.Upsert(ctx, testPlayer(10001))
@@ -388,7 +389,7 @@ func TestSubmitResult_Idempotent(t *testing.T) {
 	parts := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
 	playerRepo := storage.NewPlayerRepo(db)
-	svc := service.NewGameService(games, parts, tx)
+	svc := service.NewGameService(games, parts, storage.NewSettlementRepo(db), tx)
 	ctx := context.Background()
 
 	_ = playerRepo.Upsert(ctx, testPlayer(11001))
@@ -412,7 +413,7 @@ func TestSubmitResult_ErrGameNotActive(t *testing.T) {
 	parts := storage.NewParticipantRepo(db)
 	tx := storage.NewTxManager(db)
 	playerRepo := storage.NewPlayerRepo(db)
-	svc := service.NewGameService(games, parts, tx)
+	svc := service.NewGameService(games, parts, storage.NewSettlementRepo(db), tx)
 	ctx := context.Background()
 
 	_ = playerRepo.Upsert(ctx, testPlayer(12001))

@@ -13,14 +13,16 @@ import (
 type GameService struct {
 	games        GameRepository
 	participants ParticipantRepository
+	settlements  SettlementRepository
 	tx           TxManager
 }
 
 // NewGameService creates a GameService.
-func NewGameService(games GameRepository, participants ParticipantRepository, tx TxManager) *GameService {
+func NewGameService(games GameRepository, participants ParticipantRepository, settlements SettlementRepository, tx TxManager) *GameService {
 	return &GameService{
 		games:        games,
 		participants: participants,
+		settlements:  settlements,
 		tx:           tx,
 	}
 }
@@ -330,6 +332,38 @@ func (s *GameService) SubmitResult(ctx context.Context, gameID, playerID, finalC
 // SetHubMessageID stores the Telegram message ID of the hub message for gameID.
 func (s *GameService) SetHubMessageID(ctx context.Context, gameID, msgID int64) error {
 	return s.games.SetHubMessageID(ctx, gameID, msgID)
+}
+
+// FinalizeGame saves settlements, marks game as Finished with finished_at = now().
+// Caller must have already validated the bank and computed transfers.
+// Returns the updated game.
+func (s *GameService) FinalizeGame(ctx context.Context, gameID int64, transfers []domain.Transfer) (*domain.Game, error) {
+	var game *domain.Game
+	err := s.tx.RunInTx(ctx, func(ctx context.Context) error {
+		g, err := s.games.GetByID(ctx, gameID)
+		if err != nil {
+			return err
+		}
+		if g.Status != domain.GameStatusCollectingResults {
+			return domain.ErrGameNotActive
+		}
+
+		if err := s.settlements.SaveAll(ctx, gameID, transfers); err != nil {
+			return fmt.Errorf("FinalizeGame SaveAll: %w", err)
+		}
+		if err := s.games.UpdateStatus(ctx, gameID, domain.GameStatusFinished); err != nil {
+			return fmt.Errorf("FinalizeGame UpdateStatus: %w", err)
+		}
+		now := time.Now().UTC()
+		if err := s.games.SetFinishedAt(ctx, gameID, now); err != nil {
+			return fmt.Errorf("FinalizeGame SetFinishedAt: %w", err)
+		}
+		g.Status = domain.GameStatusFinished
+		g.FinishedAt = &now
+		game = g
+		return nil
+	})
+	return game, err
 }
 
 // CancelRebuy decrements rebuy_count for playerID in gameID (minimum 0).

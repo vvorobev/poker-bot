@@ -397,3 +397,17 @@ go vet чист, go test ./... проходит.
 - `internal/storage/settlement_repo_test.go`: 4 теста (SaveAll+ListByGame, пустой слайс, транзакционный rollback, пустой ListByGame)
 - go vet чист, go test ./... проходит
 **Следующий шаг:** TASK-035 (оркестрация расчёта) — теперь разблокирован (все зависимости done).
+
+---
+
+### [TASK-035] Оркестрация финального расчёта
+**Дата:** 2026-04-13
+**Статус:** done
+**Summary:**
+- `internal/service/game_service.go`: добавлено поле `settlements SettlementRepository` в `GameService`, обновлён `NewGameService` (4 аргумента), добавлен метод `FinalizeGame(ctx, gameID, transfers)` — в транзакции: `SaveAll`, `UpdateStatus(Finished)`, `SetFinishedAt(now)`, возвращает обновлённую Game
+- `internal/service/game_service_test.go`: все вызовы `NewGameService` обновлены (добавлен `storage.NewSettlementRepo(db)`)
+- `internal/bot/views/game_summary.go`: новый view `RenderGameSummary` — заголовок с длительностью и банком, список участников с медалями (🥇🥈🥉/❌) отсортированный по результату, секция «💸 Переводы:», HTML parse mode
+- `internal/bot/handlers/collect_results.go`: `HandleConfirmResult` расширен — после всех подтверждений: Validate → BankMismatch warn → Compute → FinalizeGame → персональные сообщения каждому участнику → групповая сводка; добавлен `buildPlayerMap` хелпер
+- `cmd/bot/main.go`: добавлен `settlementRepo := storage.NewSettlementRepo(db)`, передан в `NewGameService`
+- go vet чист, go test ./... все проходят
+**Следующий шаг:** TASK-038 (end-to-end интеграция) — зависит от TASK-035, TASK-036 (done), TASK-037 (pending). TASK-037 (итоговая сводка view) и TASK-026 (rate-limited hub updater) — следующие по приоритету.

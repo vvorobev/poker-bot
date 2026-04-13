@@ -321,10 +321,23 @@ func (h *CollectResultsHandler) HandleConfirmResult(ctx context.Context, b *bot.
 		ParseMode: models.ParseModeHTML,
 	})
 
+	// Check if all confirmed.
+	allConfirmed := true
+	for _, p := range participants {
+		if !p.ResultsConfirmed {
+			allConfirmed = false
+			break
+		}
+	}
+
 	// Update hub in group chat.
 	h.updateHubAfterConfirm(ctx, b, game, participants)
 
-	// After hub update: validate bank if all results confirmed.
+	if !allConfirmed {
+		return
+	}
+
+	// All confirmed — validate bank.
 	if err := h.settlements.Validate(participants, game.BuyIn); err != nil {
 		if mismatch, ok := service.IsBankMismatch(err); ok {
 			warnText := fmt.Sprintf(
@@ -337,7 +350,46 @@ func (h *CollectResultsHandler) HandleConfirmResult(ctx context.Context, b *bot.
 				ParseMode: models.ParseModeHTML,
 			})
 		}
+		return
 	}
+
+	// Bank valid — compute settlements and finalize.
+	transfers := h.settlements.Compute(participants, game.BuyIn)
+
+	finalGame, err := h.games.FinalizeGame(ctx, gameID, transfers)
+	if err != nil {
+		slog.Error("collect: FinalizeGame failed", "gameID", gameID, "err", err)
+		_, _ = b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:    game.ChatID,
+			Text:      "❌ Ошибка при сохранении результатов. Попробуйте позже.",
+			ParseMode: models.ParseModeHTML,
+		})
+		return
+	}
+
+	// Build player map for messages.
+	playerMap := h.buildPlayerMap(ctx, participants)
+
+	// Send personal result to each participant.
+	for _, p := range participants {
+		text := views.RenderPersonalResult(gameID, p.PlayerID, transfers, playerMap)
+		_, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:    p.PlayerID,
+			Text:      text,
+			ParseMode: models.ParseModeHTML,
+		})
+		if err != nil {
+			slog.Warn("collect: SendMessage personal result failed", "playerID", p.PlayerID, "err", err)
+		}
+	}
+
+	// Publish group summary.
+	summaryText := views.RenderGameSummary(finalGame, participants, transfers, playerMap)
+	_, _ = b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:    game.ChatID,
+		Text:      summaryText,
+		ParseMode: models.ParseModeHTML,
+	})
 }
 
 // HandleEditResult processes "edit_result:gameID" callback.
@@ -384,6 +436,17 @@ func (h *CollectResultsHandler) HandleEditResult(ctx context.Context, b *bot.Bot
 	if err != nil {
 		slog.Error("collect: EditMessageText (edit_result) failed", "err", err)
 	}
+}
+
+// buildPlayerMap loads Player records for all participants into a map keyed by PlayerID.
+func (h *CollectResultsHandler) buildPlayerMap(ctx context.Context, participants []domain.Participant) map[int64]*domain.Player {
+	playerMap := make(map[int64]*domain.Player, len(participants))
+	for _, p := range participants {
+		if pl, err := h.players.GetPlayer(ctx, p.PlayerID); err == nil {
+			playerMap[p.PlayerID] = pl
+		}
+	}
+	return playerMap
 }
 
 // updateHubAfterConfirm edits the hub message in the group chat after a participant confirms results.

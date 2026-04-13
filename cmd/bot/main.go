@@ -41,10 +41,11 @@ func main() {
 	playerRepo := storage.NewPlayerRepo(db)
 	gameRepo := storage.NewGameRepo(db)
 	participantRepo := storage.NewParticipantRepo(db)
+	settlementRepo := storage.NewSettlementRepo(db)
 	txManager := storage.NewTxManager(db)
 
 	playerSvc := service.NewPlayerService(playerRepo)
-	gameSvc := service.NewGameService(gameRepo, participantRepo, txManager)
+	gameSvc := service.NewGameService(gameRepo, participantRepo, settlementRepo, txManager)
 	settlementSvc := service.NewSettlementService()
 	fsmStore := fsm.NewStore()
 
