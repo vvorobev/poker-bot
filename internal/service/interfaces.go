@@ -39,3 +39,9 @@ type ParticipantRepository interface {
 	SetResultsConfirmed(ctx context.Context, gameID, playerID int64) error
 	GetByGameAndPlayer(ctx context.Context, gameID, playerID int64) (*domain.Participant, error)
 }
+
+// SettlementRepository is the persistence interface for Settlement entities.
+type SettlementRepository interface {
+	SaveAll(ctx context.Context, gameID int64, transfers []domain.Transfer) error
+	ListByGame(ctx context.Context, gameID int64) ([]domain.Settlement, error)
+}

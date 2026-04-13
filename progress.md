@@ -383,3 +383,17 @@ go vet чист, go test ./... проходит.
 - `internal/bot/views/personal_result_test.go`: 5 тестов — Loser (phone+bank в `<code>`), Winner (нет телефонов должников), BreakEven (сообщение «остался при своих»), MultipleTransfers (список нескольких кредиторов + итоговая сумма), HTMLParseMode (`<b>` и `<code>` теги)
 - go vet чист, go test ./... проходит (15/15 в views)
 **Следующий шаг:** TASK-012 (SettlementRepository: SaveAll + ListByGame) — разблокирует TASK-035.
+
+---
+
+### [TASK-012] SettlementRepository: SaveAll и ListByGame
+**Дата:** 2026-04-13
+**Статус:** done
+**Summary:**
+- `internal/service/interfaces.go`: добавлен интерфейс `SettlementRepository` с `SaveAll(ctx, gameID, []Transfer) error` и `ListByGame(ctx, gameID) ([]Settlement, error)`
+- `internal/storage/settlement_repo.go`: `SettlementRepo` реализует интерфейс:
+  - `SaveAll` — пустой слайс/nil = no-op; итерирует и вставляет через `extractDB(ctx)` (участвует в транзакции если есть)
+  - `ListByGame` — возвращает все переводы для игры
+- `internal/storage/settlement_repo_test.go`: 4 теста (SaveAll+ListByGame, пустой слайс, транзакционный rollback, пустой ListByGame)
+- go vet чист, go test ./... проходит
+**Следующий шаг:** TASK-035 (оркестрация расчёта) — теперь разблокирован (все зависимости done).
