@@ -467,3 +467,15 @@ go vet чист, go test ./... проходит.
   - `internal/bot/handlers/cancel_test.go`: 3 теста — ResetsActiveState, IdleStateDetected, NoSession
 - go vet чист, go test ./... все проходят
 **Следующий шаг:** TASK-018 (/name команда), TASK-027 (/game в личном чате), TASK-032 (/edit в личном чате) — все high priority, все зависимости выполнены.
+
+---
+
+### [TASK-018] Команда /name: изменение отображаемого имени игрока
+**Дата:** 2026-04-13
+**Статус:** done
+**Summary:**
+- `internal/bot/handlers/name.go`: `NameHandler.Handle` — только private чаты; извлекает аргумент через `strings.TrimPrefix(text, "/name")`; незарегистрированный → «Сначала зарегистрируйся через /start»; без аргумента → показывает текущее имя и инструкцию; имя > 50 символов → ошибка; OK → `players.UpdateDisplayName` → «Имя изменено на: <b>Имя</b>»
+- `internal/bot/bot.go`: зарегистрирован `/name` с `MatchTypePrefix` (захватывает `/name Вася`); добавлен в `botCommands`
+- `internal/bot/handlers/name_test.go`: 3 теста — ArgExtraction (4 кейса), LengthValidation, MaxLen
+- go vet чист, go test ./... все проходят
+**Следующий шаг:** TASK-027 (/game в личном чате) или TASK-032 (/edit в личном чате) — оба high priority.
