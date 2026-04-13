@@ -743,7 +743,8 @@
       "dependencies": [
         "TASK-031"
       ],
-      "status": "pending"
+      "status": "done",
+      "implementation_notes": "/edit command in private chat. Resets results_confirmed=false during collecting_results so player can re-enter chips. Shows ErrGameFinished message if game already finalized. Uses GameService.EditResult which queries GetCollectingByPlayerID/GetFinishedByPlayerID storage methods."
     },
     {
       "id": "TASK-033",

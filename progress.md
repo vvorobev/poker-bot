@@ -491,3 +491,18 @@ go vet чист, go test ./... проходит.
 - Функция-конструктор названа `NewGameCommandHandler` (не `NewGameHandler`) чтобы избежать конфликта с типом `NewGameHandler` из `newgame.go`
 - go vet чист, go test ./... все проходят
 **Следующий шаг:** TASK-032 (/edit в личном чате — high priority) или TASK-040 (/help + unknown commands — medium).
+
+---
+
+### [TASK-032] Команда /edit в личном чате
+**Дата:** 2026-04-13
+**Статус:** done
+**Summary:**
+- `internal/domain/errors.go`: добавлена `ErrGameFinished` sentinel
+- `internal/service/interfaces.go`: `GameRepository` расширен методами `GetCollectingByPlayerID` и `GetFinishedByPlayerID`; `ParticipantRepository` расширен `ResetResultsConfirmed`
+- `internal/storage/game_repo.go`: реализованы `GameRepo.GetCollectingByPlayerID` (JOIN с game_participants, status=collecting_results) и `GameRepo.GetFinishedByPlayerID` (JOIN, status=finished, ORDER BY finished_at DESC LIMIT 1); `ParticipantRepo.ResetResultsConfirmed` (SET results_confirmed=0)
+- `internal/service/game_service.go`: новый метод `EditResult(ctx, playerID)` — если collecting_results найдена: ResetResultsConfirmed + GetByGameAndPlayer в транзакции; если ErrNotFound → проверяет GetFinishedByPlayerID → ErrGameFinished; иначе ErrNotFound
+- `internal/bot/handlers/collect_results.go`: `HandleEditCommand` — 3 ветки ошибок (ErrGameFinished, ErrNotFound/ErrNotParticipant, internal); при успехе: очищает FSM (confirm_chips, confirm_game_id, StateIdle) → вызывает SendCollectionMessage
+- `internal/bot/bot.go`: зарегистрирован `/edit` (MatchTypeExact); добавлен в `botCommands`
+- go vet чист, go test ./... все проходят
+**Следующий шаг:** TASK-040 (/help + unknown commands — medium priority, последняя pending задача).

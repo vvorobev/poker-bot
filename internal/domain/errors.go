@@ -12,6 +12,7 @@ var (
 	ErrGameAlreadyActive       = errors.New("game already active")
 	ErrGameNotActive           = errors.New("game not active")
 	ErrResultsAlreadyConfirmed = errors.New("results already confirmed")
+	ErrGameFinished            = errors.New("game already finished")
 )
 
 // BankMismatchError is returned when Σfinal_chips != expected bank.

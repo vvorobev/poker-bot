@@ -366,6 +366,50 @@ func (s *GameService) FinalizeGame(ctx context.Context, gameID int64, transfers 
 	return game, err
 }
 
+// EditResult allows a player to re-enter their chip result during collecting_results.
+// Resets results_confirmed=false so the player can submit again.
+// Returns ErrGameFinished if the game is already finalized.
+// Returns ErrNotFound if no collecting_results game exists for the player.
+// Returns ErrNotParticipant if playerID is not in the game.
+func (s *GameService) EditResult(ctx context.Context, playerID int64) (*domain.Game, *domain.Participant, error) {
+	game, err := s.games.GetCollectingByPlayerID(ctx, playerID)
+	if err != nil {
+		if !errors.Is(err, domain.ErrNotFound) {
+			return nil, nil, err
+		}
+		// Check if there's a finished game to give a better error.
+		_, err2 := s.games.GetFinishedByPlayerID(ctx, playerID)
+		if err2 == nil {
+			return nil, nil, domain.ErrGameFinished
+		}
+		return nil, nil, domain.ErrNotFound
+	}
+
+	var p *domain.Participant
+	err = s.tx.RunInTx(ctx, func(ctx context.Context) error {
+		_, err := s.participants.GetByGameAndPlayer(ctx, game.ID, playerID)
+		if errors.Is(err, domain.ErrNotFound) {
+			return domain.ErrNotParticipant
+		}
+		if err != nil {
+			return err
+		}
+		if err := s.participants.ResetResultsConfirmed(ctx, game.ID, playerID); err != nil {
+			return fmt.Errorf("EditResult reset: %w", err)
+		}
+		updated, err := s.participants.GetByGameAndPlayer(ctx, game.ID, playerID)
+		if err != nil {
+			return fmt.Errorf("EditResult get updated: %w", err)
+		}
+		p = updated
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return game, p, nil
+}
+
 // CancelRebuy decrements rebuy_count for playerID in gameID (minimum 0).
 // Returns ErrNotParticipant if playerID is not in the game, ErrGameNotActive if game is not active.
 func (s *GameService) CancelRebuy(ctx context.Context, gameID, playerID int64) (*domain.Game, []domain.Participant, error) {

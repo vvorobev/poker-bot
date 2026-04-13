@@ -63,6 +63,33 @@ func (r *GameRepo) GetActiveByChatID(ctx context.Context, chatID int64) (*domain
 	return scanGame(row)
 }
 
+// GetCollectingByPlayerID returns the game in collecting_results status where playerID is a participant.
+// Returns domain.ErrNotFound when no such game exists.
+func (r *GameRepo) GetCollectingByPlayerID(ctx context.Context, playerID int64) (*domain.Game, error) {
+	q := extractDB(ctx, r.db)
+	row := q.QueryRowContext(ctx, `
+		SELECT g.id, g.chat_id, g.creator_id, g.buy_in, g.hub_message_id, g.status, g.created_at, g.finished_at
+		FROM games g
+		JOIN game_participants p ON p.game_id = g.id
+		WHERE p.player_id = ? AND g.status = ?
+		LIMIT 1`, playerID, domain.GameStatusCollectingResults)
+	return scanGame(row)
+}
+
+// GetFinishedByPlayerID returns the most recent finished game where playerID is a participant.
+// Returns domain.ErrNotFound when no such game exists.
+func (r *GameRepo) GetFinishedByPlayerID(ctx context.Context, playerID int64) (*domain.Game, error) {
+	q := extractDB(ctx, r.db)
+	row := q.QueryRowContext(ctx, `
+		SELECT g.id, g.chat_id, g.creator_id, g.buy_in, g.hub_message_id, g.status, g.created_at, g.finished_at
+		FROM games g
+		JOIN game_participants p ON p.game_id = g.id
+		WHERE p.player_id = ? AND g.status = ?
+		ORDER BY g.finished_at DESC
+		LIMIT 1`, playerID, domain.GameStatusFinished)
+	return scanGame(row)
+}
+
 // UpdateStatus sets the status of a game.
 func (r *GameRepo) UpdateStatus(ctx context.Context, id int64, status domain.GameStatus) error {
 	q := extractDB(ctx, r.db)
@@ -252,6 +279,19 @@ func (r *ParticipantRepo) GetByGameAndPlayer(ctx context.Context, gameID, player
 		return nil, fmt.Errorf("storage.ParticipantRepo.GetByGameAndPlayer: %w", err)
 	}
 	return &p, nil
+}
+
+// ResetResultsConfirmed sets results_confirmed=false for a participant.
+func (r *ParticipantRepo) ResetResultsConfirmed(ctx context.Context, gameID, playerID int64) error {
+	q := extractDB(ctx, r.db)
+	_, err := q.ExecContext(ctx,
+		`UPDATE game_participants SET results_confirmed = 0 WHERE game_id = ? AND player_id = ?`,
+		gameID, playerID,
+	)
+	if err != nil {
+		return fmt.Errorf("storage.ParticipantRepo.ResetResultsConfirmed: %w", err)
+	}
+	return nil
 }
 
 // isUniqueConstraintErr reports whether err is a SQLite UNIQUE constraint violation.

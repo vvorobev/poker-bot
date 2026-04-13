@@ -438,6 +438,49 @@ func (h *CollectResultsHandler) HandleEditResult(ctx context.Context, b *bot.Bot
 	}
 }
 
+// HandleEditCommand processes the /edit command in private chat.
+// Resets results_confirmed so the player can re-enter their chip result.
+func (h *CollectResultsHandler) HandleEditCommand(ctx context.Context, b *bot.Bot, update *models.Update) {
+	msg := update.Message
+	if msg == nil {
+		return
+	}
+	userID := msg.From.ID
+
+	game, p, err := h.games.EditResult(ctx, userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrGameFinished):
+			_, _ = b.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID: msg.Chat.ID,
+				Text:   "❌ Изменение данных невозможно, расчёт уже выполнен.",
+			})
+		case errors.Is(err, domain.ErrNotFound), errors.Is(err, domain.ErrNotParticipant):
+			_, _ = b.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID: msg.Chat.ID,
+				Text:   "Сбора результатов нет. Используй /game для управления игрой.",
+			})
+		default:
+			slog.Error("collect: EditResult failed", "userID", userID, "err", err)
+			_, _ = b.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID: msg.Chat.ID,
+				Text:   "Ошибка. Попробуй ещё раз.",
+			})
+		}
+		return
+	}
+
+	// Clear any stale FSM confirm data.
+	if sess, ok := h.fsmStore.Get(userID); ok && sess != nil && sess.Data != nil {
+		delete(sess.Data, "confirm_chips")
+		delete(sess.Data, "confirm_game_id")
+		sess.State = fsm.StateIdle
+		h.fsmStore.Set(userID, sess)
+	}
+
+	h.SendCollectionMessage(ctx, b, userID, game, p)
+}
+
 // buildPlayerMap loads Player records for all participants into a map keyed by PlayerID.
 func (h *CollectResultsHandler) buildPlayerMap(ctx context.Context, participants []domain.Participant) map[int64]*domain.Player {
 	playerMap := make(map[int64]*domain.Player, len(participants))
