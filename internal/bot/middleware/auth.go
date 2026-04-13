@@ -97,7 +97,7 @@ func (a *Auth) isAllowed(ctx context.Context, b *bot.Bot, chatID int64, chatType
 			return true
 		}
 		member, err := b.GetChatMember(ctx, &bot.GetChatMemberParams{
-			ChatID: a.allowedChatID,
+			ChatID: chatID,
 			UserID: userID,
 		})
 		if err != nil {

@@ -14,6 +14,11 @@ import (
 	"poker-bot/internal/service"
 )
 
+var botCommands = []models.BotCommand{
+	{Command: "start", Description: "Регистрация / профиль"},
+	{Command: "newgame", Description: "Создать новую игру"},
+}
+
 // Deps holds the dependencies injected into the bot's handlers.
 type Deps struct {
 	AllowedChatID int64
@@ -150,6 +155,12 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 		customFlag, _ := sess.Data["bank_custom"].(bool)
 		return customFlag
 	}, bankH.HandleBankText)
+
+	if _, err := b.SetMyCommands(context.Background(), &bot.SetMyCommandsParams{
+		Commands: botCommands,
+	}); err != nil {
+		slog.Error("failed to set bot commands", "err", err)
+	}
 
 	return b, nil
 }
