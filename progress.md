@@ -411,3 +411,14 @@ go vet чист, go test ./... проходит.
 - `cmd/bot/main.go`: добавлен `settlementRepo := storage.NewSettlementRepo(db)`, передан в `NewGameService`
 - go vet чист, go test ./... все проходят
 **Следующий шаг:** TASK-038 (end-to-end интеграция) — зависит от TASK-035, TASK-036 (done), TASK-037 (pending). TASK-037 (итоговая сводка view) и TASK-026 (rate-limited hub updater) — следующие по приоритету.
+
+---
+
+### [TASK-037] View: итоговая сводка результатов для публикации в групповом чате
+**Дата:** 2026-04-13
+**Статус:** done
+**Summary:**
+- `internal/bot/views/game_summary.go`: функция `RenderGameSummary` уже была реализована в TASK-035. Содержит: заголовок 🎰 с ID игры, длительность (Xч Yмин), банк, число игроков; список участников отсортированный по убыванию баланса с медалями 🥇🥈🥉 для первых трёх положительных и ❌ для проигравших; секция 💸 Переводы; HTML parse mode.
+- `internal/bot/views/game_summary_test.go`: 5 новых тестов — Medals (6 игроков: 3 медали + 3 ❌, порядок сортировки), Duration (3ч 20мин), Transfers (→ стрелка, имена, сумма), HTMLParseMode (<b> теги), Header (эмодзи 🎰, ID, банк).
+- go vet чист, go test ./... все проходят (19 тестов в views)
+**Следующий шаг:** TASK-038 (end-to-end интеграция) — все зависимости теперь done. TASK-026 (rate-limited hub updater) параллельно.
