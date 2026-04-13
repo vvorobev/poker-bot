@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -276,17 +275,16 @@ func (h *HubCallbackHandler) HandleFinish(ctx context.Context, b *bot.Bot, updat
 	})
 }
 
-// sendCollectResultsMessages sends a personal message to each participant asking for final chip counts.
+// sendCollectResultsMessages sends a personal chip-collection form to each participant.
 func (h *HubCallbackHandler) sendCollectResultsMessages(ctx context.Context, b *bot.Bot, game *domain.Game, participants []domain.Participant) {
-	for _, p := range participants {
-		text := fmt.Sprintf(
-			"🏁 <b>Игра #%d завершена!</b>\n\nВведи свои финальные данные — напиши /game в этот чат.",
-			game.ID,
-		)
+	for i := range participants {
+		p := &participants[i]
+		text := views.RenderChipsInput(game, p)
 		_, err := b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID:    p.PlayerID,
-			Text:      text,
-			ParseMode: models.ParseModeHTML,
+			ChatID:      p.PlayerID,
+			Text:        text,
+			ParseMode:   models.ParseModeHTML,
+			ReplyMarkup: keyboards.ChipsCollectionKeyboard(game.ID),
 		})
 		if err != nil {
 			slog.Warn("hub: failed to send collect-results message", "playerID", p.PlayerID, "gameID", game.ID, "err", err)

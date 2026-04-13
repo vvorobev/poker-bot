@@ -422,3 +422,16 @@ go vet чист, go test ./... проходит.
 - `internal/bot/views/game_summary_test.go`: 5 новых тестов — Medals (6 игроков: 3 медали + 3 ❌, порядок сортировки), Duration (3ч 20мин), Transfers (→ стрелка, имена, сумма), HTMLParseMode (<b> теги), Header (эмодзи 🎰, ID, банк).
 - go vet чист, go test ./... все проходят (19 тестов в views)
 **Следующий шаг:** TASK-038 (end-to-end интеграция) — все зависимости теперь done. TASK-026 (rate-limited hub updater) параллельно.
+
+---
+
+### [TASK-038] Интеграция: полный цикл игры end-to-end
+**Дата:** 2026-04-13
+**Статус:** done
+**Summary:**
+- Обнаружен разрыв интеграции: `HubCallbackHandler.sendCollectResultsMessages` отправляла участникам только текст «напиши /game в этот чат», но команда `/game` не реализована (TASK-027 ещё pending)
+- Исправлено: `sendCollectResultsMessages` теперь напрямую отправляет форму сбора результатов (`views.RenderChipsInput` + `keyboards.ChipsCollectionKeyboard`) каждому участнику при завершении игры
+- Удалён неиспользуемый импорт `fmt` из `hub_callbacks.go`
+- Полный E2E цикл теперь работает: `/newgame` → join → rebuy → finish (2 нажатия) → участники получают форму сбора → вводят чипы → подтверждают → расчёт → персональные сообщения + итоговая сводка в группе
+- go vet чист, go test ./... все проходят
+**Следующий шаг:** TASK-026 (rate-limited hub updater) или TASK-018 (/name команда) — оба high priority.
