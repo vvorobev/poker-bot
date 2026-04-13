@@ -352,6 +352,79 @@ func TestFinishGame_ErrNotParticipant(t *testing.T) {
 	}
 }
 
+func TestSubmitResult_Success(t *testing.T) {
+	db := openTestDB(t)
+	games := storage.NewGameRepo(db)
+	parts := storage.NewParticipantRepo(db)
+	tx := storage.NewTxManager(db)
+	playerRepo := storage.NewPlayerRepo(db)
+	svc := service.NewGameService(games, parts, tx)
+	ctx := context.Background()
+
+	_ = playerRepo.Upsert(ctx, testPlayer(10001))
+	_ = playerRepo.Upsert(ctx, testPlayer(10002))
+	game, _ := svc.NewGame(ctx, 900, 10001, 1000)
+	svc.Join(ctx, game.ID, 10002) //nolint
+	svc.FinishGame(ctx, game.ID, 10001) //nolint: → collecting_results
+
+	p, list, err := svc.SubmitResult(ctx, game.ID, 10001, 1500)
+	if err != nil {
+		t.Fatalf("SubmitResult: %v", err)
+	}
+	if !p.ResultsConfirmed {
+		t.Error("expected ResultsConfirmed=true")
+	}
+	if p.FinalChips == nil || *p.FinalChips != 1500 {
+		t.Errorf("expected FinalChips=1500, got %v", p.FinalChips)
+	}
+	if len(list) != 2 {
+		t.Errorf("expected 2 participants, got %d", len(list))
+	}
+}
+
+func TestSubmitResult_Idempotent(t *testing.T) {
+	db := openTestDB(t)
+	games := storage.NewGameRepo(db)
+	parts := storage.NewParticipantRepo(db)
+	tx := storage.NewTxManager(db)
+	playerRepo := storage.NewPlayerRepo(db)
+	svc := service.NewGameService(games, parts, tx)
+	ctx := context.Background()
+
+	_ = playerRepo.Upsert(ctx, testPlayer(11001))
+	game, _ := svc.NewGame(ctx, 901, 11001, 1000)
+	svc.FinishGame(ctx, game.ID, 11001) //nolint
+
+	svc.SubmitResult(ctx, game.ID, 11001, 800) //nolint: first confirm
+	p, _, err := svc.SubmitResult(ctx, game.ID, 11001, 999) // second call with different chips
+	if err != nil {
+		t.Fatalf("second SubmitResult: %v", err)
+	}
+	// chips should NOT change — idempotent (original 800 preserved)
+	if p.FinalChips == nil || *p.FinalChips != 800 {
+		t.Errorf("expected FinalChips=800 (idempotent), got %v", p.FinalChips)
+	}
+}
+
+func TestSubmitResult_ErrGameNotActive(t *testing.T) {
+	db := openTestDB(t)
+	games := storage.NewGameRepo(db)
+	parts := storage.NewParticipantRepo(db)
+	tx := storage.NewTxManager(db)
+	playerRepo := storage.NewPlayerRepo(db)
+	svc := service.NewGameService(games, parts, tx)
+	ctx := context.Background()
+
+	_ = playerRepo.Upsert(ctx, testPlayer(12001))
+	game, _ := svc.NewGame(ctx, 902, 12001, 1000)
+	// game is still active, not collecting_results
+
+	_, _, err := svc.SubmitResult(ctx, game.ID, 12001, 500)
+	if !errors.Is(err, domain.ErrGameNotActive) {
+		t.Fatalf("expected ErrGameNotActive, got %v", err)
+	}
+}
+
 // testPlayer returns a minimal domain.Player for test setup.
 func testPlayer(id int64) *domain.Player {
 	return &domain.Player{

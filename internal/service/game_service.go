@@ -265,6 +265,68 @@ func (s *GameService) AdjustRebuyInCollection(ctx context.Context, gameID, playe
 	return p, err
 }
 
+// SubmitResult saves final_chips and marks results_confirmed=true for playerID in gameID.
+// Returns ErrNotParticipant if playerID is not in the game.
+// Returns ErrGameNotActive if game is not in collecting_results status.
+// Returns the updated Participant and full participants list.
+func (s *GameService) SubmitResult(ctx context.Context, gameID, playerID, finalChips int64) (*domain.Participant, []domain.Participant, error) {
+	var (
+		p    *domain.Participant
+		list []domain.Participant
+	)
+	err := s.tx.RunInTx(ctx, func(ctx context.Context) error {
+		g, err := s.games.GetByID(ctx, gameID)
+		if err != nil {
+			return err
+		}
+		if g.Status != domain.GameStatusCollectingResults {
+			return domain.ErrGameNotActive
+		}
+
+		existing, err := s.participants.GetByGameAndPlayer(ctx, gameID, playerID)
+		if errors.Is(err, domain.ErrNotFound) {
+			return domain.ErrNotParticipant
+		}
+		if err != nil {
+			return err
+		}
+		if existing.ResultsConfirmed {
+			// Already confirmed — return current state without error.
+			p = existing
+			all, err := s.participants.ListByGame(ctx, gameID)
+			if err != nil {
+				return fmt.Errorf("SubmitResult list: %w", err)
+			}
+			list = all
+			return nil
+		}
+
+		if err := s.participants.SetFinalChips(ctx, gameID, playerID, finalChips); err != nil {
+			return fmt.Errorf("SubmitResult SetFinalChips: %w", err)
+		}
+		if err := s.participants.SetResultsConfirmed(ctx, gameID, playerID); err != nil {
+			return fmt.Errorf("SubmitResult SetResultsConfirmed: %w", err)
+		}
+
+		updated, err := s.participants.GetByGameAndPlayer(ctx, gameID, playerID)
+		if err != nil {
+			return fmt.Errorf("SubmitResult get updated: %w", err)
+		}
+		p = updated
+
+		all, err := s.participants.ListByGame(ctx, gameID)
+		if err != nil {
+			return fmt.Errorf("SubmitResult list: %w", err)
+		}
+		list = all
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return p, list, nil
+}
+
 // SetHubMessageID stores the Telegram message ID of the hub message for gameID.
 func (s *GameService) SetHubMessageID(ctx context.Context, gameID, msgID int64) error {
 	return s.games.SetHubMessageID(ctx, gameID, msgID)

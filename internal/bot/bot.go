@@ -119,6 +119,14 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 		sess, ok := fsmStore.Get(update.Message.From.ID)
 		return ok && sess.State == fsm.StateAwaitingChipsInput
 	}, collectH.HandleChipsText)
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.CallbackQuery != nil &&
+			strings.HasPrefix(update.CallbackQuery.Data, "confirm_result:")
+	}, collectH.HandleConfirmResult)
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.CallbackQuery != nil &&
+			strings.HasPrefix(update.CallbackQuery.Data, "edit_result:")
+	}, collectH.HandleEditResult)
 
 	bankH := handlers.NewBankHandler(deps.Players, deps.FSM)
 	// Bank selection callback handler (bank:<name>).

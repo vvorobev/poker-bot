@@ -339,3 +339,17 @@ go vet чист, go test ./... проходит.
 - `collect_results_test.go`: 4 unit-теста для view (profit/loss/break-even/zero-rebuys)
 - go vet чист, go test ./... проходит
 **Следующий шаг:** TASK-031 (подтверждение финальных данных: `SubmitResult`, обработчики `confirm_result`/`edit_result`) — разблокирован. Параллельно: TASK-033 (SettlementService.Validate), TASK-036 (personal result view).
+
+---
+
+### [TASK-031] Подтверждение финальных данных участника и обновление хаба
+**Дата:** 2026-04-13
+**Статус:** done
+**Summary:**
+- `internal/service/game_service.go`: добавлен `SubmitResult(ctx, gameID, playerID, finalChips)` — транзакционно сохраняет `final_chips` и `results_confirmed=true`; идемпотентен (повторный вызов возвращает текущее состояние без ошибки)
+- `internal/bot/handlers/collect_results.go`: добавлены `HandleConfirmResult` (обрабатывает `confirm_result:N`, берёт chips из FSM Data, вызывает `SubmitResult`, редактирует личное сообщение, обновляет хаб в группе) и `HandleEditResult` (обрабатывает `edit_result:N`, возвращает к ChipsCollectionKeyboard)
+- `updateHubAfterConfirm` — приватный метод `CollectResultsHandler`, дублирует логику `HubCallbackHandler.updateHub` (зависимость на `players` уже была в struct)
+- `internal/bot/bot.go`: зарегистрированы `confirm_result:*` и `edit_result:*`
+- `game_service_test.go`: 3 теста — Success, Idempotent (chips не меняются при повторном confirm), ErrGameNotActive
+- go vet чист, go test ./... проходит
+**Следующий шаг:** TASK-033 (SettlementService.Validate) и TASK-036 (View персонального результата) — оба critical и разблокированы.
