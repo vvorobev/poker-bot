@@ -449,3 +449,21 @@ go vet чист, go test ./... проходит.
 - `internal/bot/hub/updater_test.go`: 5 тестов — TestDebounce (5 вызовов за 100ms → 1 edit), TestDebounceIndependentGames (2 игры → 2 edit), TestRateLimitRetry (429 → retry через 1s), TestNoUpdateWhenHubMessageIDZero, TestNonTelegramError; `go test -race` чист
 - go vet чист, go test ./... все проходят
 **Следующий шаг:** Updater создан, но НЕ подключён к существующим хендлерам (это намеренно — текущий `updateHub` в `hub_callbacks.go` работает синхронно, интеграция через Schedule будет в следующем рефакторинге). Следующие задачи: TASK-018 (/name), TASK-027 (/game в личном чате), TASK-032 (/edit), TASK-039 (edge cases).
+
+---
+
+### [TASK-039] Edge cases: идемпотентность кнопок, конкурентные нажатия, /cancel
+**Дата:** 2026-04-13
+**Статус:** done
+**Summary:**
+- Аудит существующих хендлеров: большинство критериев уже реализованы в предыдущих задачах:
+  - Повторное нажатие «Присоединиться» → `ErrAlreadyJoined` → alert «Ты уже в игре» ✓ (hub_callbacks.go:54)
+  - Два нажатия «Завершить» → `ErrGameNotActive` → alert «Игра уже завершается или завершена» ✓ (hub_callbacks.go:227)
+  - Кнопки завершённых хабов → `ErrGameNotActive` во всех handlers → «Эта игра уже завершена» ✓
+  - SQLITE_BUSY → default error case → «Ошибка. Попробуй ещё раз» через answerCallbackQuery ✓
+- **Реализовано:** `/cancel` команда — единственный недостающий критерий
+  - `internal/bot/handlers/cancel.go`: `CancelHandler.Handle` — если FSM state != StateIdle: сброс в StateIdle + «Отменено»; если idle/нет сессии: «Нечего отменять»
+  - `internal/bot/bot.go`: зарегистрирован `/cancel` handler; добавлен в `botCommands` (описание «Отменить текущее действие»)
+  - `internal/bot/handlers/cancel_test.go`: 3 теста — ResetsActiveState, IdleStateDetected, NoSession
+- go vet чист, go test ./... все проходят
+**Следующий шаг:** TASK-018 (/name команда), TASK-027 (/game в личном чате), TASK-032 (/edit в личном чате) — все high priority, все зависимости выполнены.

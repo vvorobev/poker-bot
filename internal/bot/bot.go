@@ -17,6 +17,7 @@ import (
 var botCommands = []models.BotCommand{
 	{Command: "start", Description: "Регистрация / профиль"},
 	{Command: "newgame", Description: "Создать новую игру"},
+	{Command: "cancel", Description: "Отменить текущее действие"},
 }
 
 // Deps holds the dependencies injected into the bot's handlers.
@@ -133,6 +134,9 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 		return update.CallbackQuery != nil &&
 			strings.HasPrefix(update.CallbackQuery.Data, "edit_result:")
 	}, collectH.HandleEditResult)
+
+	cancelH := handlers.NewCancelHandler(deps.FSM)
+	b.RegisterHandler(bot.HandlerTypeMessageText, "/cancel", bot.MatchTypeExact, cancelH.Handle)
 
 	bankH := handlers.NewBankHandler(deps.Players, deps.FSM)
 	// Bank selection callback handler (bank:<name>).
