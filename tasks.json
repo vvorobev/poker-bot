@@ -607,7 +607,8 @@
         "TASK-021",
         "TASK-022"
       ],
-      "status": "pending"
+      "status": "done",
+      "implementation_notes": "internal/bot/hub/updater.go: Updater with Schedule(ctx, gameID). Debounce 1s per game via time.AfterFunc+Reset. 429 handled via errors.As(*TooManyRequestsError) → time.AfterFunc(retryAfter). Reads fresh game state from DB before each edit. Tests: debounce, independent games, 429 retry, zero HubMessageID, non-Telegram error. go test -race passes."
     },
     {
       "id": "TASK-027",

@@ -435,3 +435,17 @@ go vet чист, go test ./... проходит.
 - Полный E2E цикл теперь работает: `/newgame` → join → rebuy → finish (2 нажатия) → участники получают форму сбора → вводят чипы → подтверждают → расчёт → персональные сообщения + итоговая сводка в группе
 - go vet чист, go test ./... все проходят
 **Следующий шаг:** TASK-026 (rate-limited hub updater) или TASK-018 (/name команда) — оба high priority.
+
+---
+
+### [TASK-026] Hub updater: rate-limited обновление сообщения-хаба
+**Дата:** 2026-04-13
+**Статус:** done
+**Summary:**
+- `internal/bot/hub/updater.go`: новый пакет. `Updater` struct с полями `editor messageEditor`, `games gameReader`, `players playerReader`, `mu sync.Mutex`, `pending map[int64]*time.Timer`
+- Interfaces: `gameReader` (GetGameByID, GetParticipants), `playerReader` (GetPlayer), `messageEditor` (EditMessageText) — позволяют инжектить моки в тестах; `*bot.Bot` и `*service.GameService` / `*service.PlayerService` их реализуют
+- `Schedule(ctx, gameID)`: debounce 1s через `time.AfterFunc` + `Reset`; несколько вызовов за 1с коллапсируют в 1 `editMessageText`
+- `doUpdate(ctx, gameID)`: читает fresh state из DB (`GetGameByID`, `GetParticipants`, `GetPlayer`), рендерит `views.RenderHub`, вызывает `editor.EditMessageText`; при 429 использует `errors.As(*tgbot.TooManyRequestsError)` → `time.AfterFunc(retryAfter)` для одиночного retry
+- `internal/bot/hub/updater_test.go`: 5 тестов — TestDebounce (5 вызовов за 100ms → 1 edit), TestDebounceIndependentGames (2 игры → 2 edit), TestRateLimitRetry (429 → retry через 1s), TestNoUpdateWhenHubMessageIDZero, TestNonTelegramError; `go test -race` чист
+- go vet чист, go test ./... все проходят
+**Следующий шаг:** Updater создан, но НЕ подключён к существующим хендлерам (это намеренно — текущий `updateHub` в `hub_callbacks.go` работает синхронно, интеграция через Schedule будет в следующем рефакторинге). Следующие задачи: TASK-018 (/name), TASK-027 (/game в личном чате), TASK-032 (/edit), TASK-039 (edge cases).
