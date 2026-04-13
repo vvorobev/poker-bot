@@ -17,6 +17,7 @@ import (
 var botCommands = []models.BotCommand{
 	{Command: "start", Description: "Регистрация / профиль"},
 	{Command: "newgame", Description: "Создать новую игру"},
+	{Command: "game", Description: "Текущая игра"},
 	{Command: "name", Description: "Изменить отображаемое имя"},
 	{Command: "cancel", Description: "Отменить текущее действие"},
 }
@@ -135,6 +136,9 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 		return update.CallbackQuery != nil &&
 			strings.HasPrefix(update.CallbackQuery.Data, "edit_result:")
 	}, collectH.HandleEditResult)
+
+	gameH := handlers.NewGameCommandHandler(deps.Players, deps.Games, deps.AllowedChatID)
+	b.RegisterHandler(bot.HandlerTypeMessageText, "/game", bot.MatchTypeExact, gameH.Handle)
 
 	nameH := handlers.NewNameHandler(deps.Players)
 	b.RegisterHandler(bot.HandlerTypeMessageText, "/name", bot.MatchTypePrefix, nameH.Handle)

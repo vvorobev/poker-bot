@@ -629,7 +629,8 @@
       "dependencies": [
         "TASK-025"
       ],
-      "status": "pending"
+      "status": "done",
+      "implementation_notes": "handlers/game.go: GameHandler with NewGameCommandHandler. Registered /game exact match in bot.go for private chat. Checks registration, fetches active game by allowedChatID, renders RenderHub+HubKeyboard or shows no-game message."
     },
     {
       "id": "TASK-028",

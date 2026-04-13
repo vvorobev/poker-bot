@@ -479,3 +479,15 @@ go vet чист, go test ./... проходит.
 - `internal/bot/handlers/name_test.go`: 3 теста — ArgExtraction (4 кейса), LengthValidation, MaxLen
 - go vet чист, go test ./... все проходят
 **Следующий шаг:** TASK-027 (/game в личном чате) или TASK-032 (/edit в личном чате) — оба high priority.
+
+---
+
+### [TASK-027] Команда /game в личном чате: зеркало хаба
+**Дата:** 2026-04-13
+**Статус:** done
+**Summary:**
+- `internal/bot/handlers/game.go`: `GameHandler` + `NewGameCommandHandler` — принимает `/game` в личном чате; проверяет регистрацию; получает активную игру через `games.GetActiveGame(ctx, allowedChatID)`; если ErrNotFound → «Активных игр нет. Создай игру командой /newgame»; иначе строит playerMap, рендерит `views.RenderHub` + `keyboards.HubKeyboard` и отправляет в личку
+- `internal/bot/bot.go`: зарегистрирован `/game` (MatchTypeExact); добавлен в `botCommands` с описанием «Текущая игра»
+- Функция-конструктор названа `NewGameCommandHandler` (не `NewGameHandler`) чтобы избежать конфликта с типом `NewGameHandler` из `newgame.go`
+- go vet чист, go test ./... все проходят
+**Следующий шаг:** TASK-032 (/edit в личном чате — high priority) или TASK-040 (/help + unknown commands — medium).
