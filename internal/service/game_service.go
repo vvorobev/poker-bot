@@ -213,6 +213,58 @@ func (s *GameService) GetParticipants(ctx context.Context, gameID int64) ([]doma
 	return s.participants.ListByGame(ctx, gameID)
 }
 
+// GetGameByID returns a game by its ID.
+func (s *GameService) GetGameByID(ctx context.Context, gameID int64) (*domain.Game, error) {
+	return s.games.GetByID(ctx, gameID)
+}
+
+// GetParticipant returns a single participant for gameID+playerID.
+func (s *GameService) GetParticipant(ctx context.Context, gameID, playerID int64) (*domain.Participant, error) {
+	return s.participants.GetByGameAndPlayer(ctx, gameID, playerID)
+}
+
+// AdjustRebuyInCollection increments (delta=+1) or decrements (delta=-1) rebuy_count
+// for playerID in gameID while the game is in collecting_results status.
+// Returns the updated Participant.
+func (s *GameService) AdjustRebuyInCollection(ctx context.Context, gameID, playerID int64, delta int) (*domain.Participant, error) {
+	var p *domain.Participant
+	err := s.tx.RunInTx(ctx, func(ctx context.Context) error {
+		g, err := s.games.GetByID(ctx, gameID)
+		if err != nil {
+			return err
+		}
+		if g.Status != domain.GameStatusCollectingResults {
+			return domain.ErrGameNotActive
+		}
+
+		_, err = s.participants.GetByGameAndPlayer(ctx, gameID, playerID)
+		if errors.Is(err, domain.ErrNotFound) {
+			return domain.ErrNotParticipant
+		}
+		if err != nil {
+			return err
+		}
+
+		if delta > 0 {
+			if err := s.participants.IncrementRebuy(ctx, gameID, playerID); err != nil {
+				return fmt.Errorf("AdjustRebuyInCollection increment: %w", err)
+			}
+		} else if delta < 0 {
+			if err := s.participants.DecrementRebuy(ctx, gameID, playerID); err != nil {
+				return fmt.Errorf("AdjustRebuyInCollection decrement: %w", err)
+			}
+		}
+
+		updated, err := s.participants.GetByGameAndPlayer(ctx, gameID, playerID)
+		if err != nil {
+			return fmt.Errorf("AdjustRebuyInCollection get updated: %w", err)
+		}
+		p = updated
+		return nil
+	})
+	return p, err
+}
+
 // SetHubMessageID stores the Telegram message ID of the hub message for gameID.
 func (s *GameService) SetHubMessageID(ctx context.Context, gameID, msgID int64) error {
 	return s.games.SetHubMessageID(ctx, gameID, msgID)

@@ -96,6 +96,30 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 		return ok && sess.State == fsm.StateAwaitingBuyIn
 	}, newGameH.HandleBuyInText)
 
+	collectH := handlers.NewCollectResultsHandler(deps.Players, deps.Games, deps.FSM)
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.CallbackQuery != nil &&
+			strings.HasPrefix(update.CallbackQuery.Data, "collect_rebuy_plus:")
+	}, collectH.HandleRebuyPlus)
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.CallbackQuery != nil &&
+			strings.HasPrefix(update.CallbackQuery.Data, "collect_rebuy_minus:")
+	}, collectH.HandleRebuyMinus)
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		return update.CallbackQuery != nil &&
+			strings.HasPrefix(update.CallbackQuery.Data, "chips_mode:")
+	}, collectH.HandleChipsMode)
+	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
+		if update.Message == nil || update.Message.Text == "" {
+			return false
+		}
+		if update.Message.Chat.Type != models.ChatTypePrivate {
+			return false
+		}
+		sess, ok := fsmStore.Get(update.Message.From.ID)
+		return ok && sess.State == fsm.StateAwaitingChipsInput
+	}, collectH.HandleChipsText)
+
 	bankH := handlers.NewBankHandler(deps.Players, deps.FSM)
 	// Bank selection callback handler (bank:<name>).
 	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {

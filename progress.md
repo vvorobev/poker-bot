@@ -324,3 +324,18 @@ go vet чист, go test ./... проходит.
 - Зарегистрирован в `bot.go` через `HasPrefix("finish:")`
 - go vet чист, go test ./... проходит
 **Следующий шаг:** TASK-030 (View и FSM: личное сообщение для сбора финальных данных участника) — разблокирован. Параллельно: TASK-033 (SettlementService.Validate), TASK-036 (персональный результат view), TASK-012 (SettlementRepository), TASK-018 (/name), TASK-027 (/game).
+
+---
+
+### [TASK-030] View и FSM: личное сообщение для сбора финальных данных
+**Дата:** 2026-04-13
+**Статус:** done
+**Summary:**
+- `internal/service/game_service.go`: добавлены `GetGameByID`, `GetParticipant`, `AdjustRebuyInCollection(delta ±1)` — работает только при статусе `collecting_results`, возвращает обновлённый Participant
+- `internal/bot/keyboards/keyboards.go`: добавлены `ChipsCollectionKeyboard(gameID)` (ряд ➖/➕ + ряд chips/rubles с embedded gameID в формате `chips_mode:<mode>:<id>`) и `ResultConfirmKeyboard(gameID)`
+- `internal/bot/views/collect_results.go`: `RenderChipsInput` (бай-ин, докупы, итого), `RenderChipsConfirm` (докупов / осталось / результат ±)
+- `internal/bot/handlers/collect_results.go`: `CollectResultsHandler` — `HandleRebuyPlus/Minus`, `HandleChipsMode` (FSM→StateAwaitingChipsInput, сохраняет game_id/mode/msg_id), `HandleChipsText` (парсинг >= 0, показывает confirm + ResultConfirmKeyboard, сохраняет chips в FSM для TASK-031)
+- `internal/bot/bot.go`: зарегистрированы `collect_rebuy_plus:*`, `collect_rebuy_minus:*`, `chips_mode:*`, текст при `StateAwaitingChipsInput`
+- `collect_results_test.go`: 4 unit-теста для view (profit/loss/break-even/zero-rebuys)
+- go vet чист, go test ./... проходит
+**Следующий шаг:** TASK-031 (подтверждение финальных данных: `SubmitResult`, обработчики `confirm_result`/`edit_result`) — разблокирован. Параллельно: TASK-033 (SettlementService.Validate), TASK-036 (personal result view).

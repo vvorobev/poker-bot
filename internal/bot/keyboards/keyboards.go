@@ -69,3 +69,32 @@ func ChipsInputKeyboard() *models.InlineKeyboardMarkup {
 		},
 	}
 }
+
+// ChipsCollectionKeyboard returns the keyboard for the personal chip collection message.
+// Includes rebuy ➖/➕ buttons and chips/rubles mode selection (with gameID embedded).
+func ChipsCollectionKeyboard(gameID int64) *models.InlineKeyboardMarkup {
+	return &models.InlineKeyboardMarkup{
+		InlineKeyboard: [][]models.InlineKeyboardButton{
+			{
+				{Text: "➖ Убрать докуп", CallbackData: fmt.Sprintf("collect_rebuy_minus:%d", gameID)},
+				{Text: "➕ Добавить докуп", CallbackData: fmt.Sprintf("collect_rebuy_plus:%d", gameID)},
+			},
+			{
+				{Text: "💰 Ввести в фишках", CallbackData: fmt.Sprintf("chips_mode:chips:%d", gameID)},
+				{Text: "💵 Ввести в рублях", CallbackData: fmt.Sprintf("chips_mode:rubles:%d", gameID)},
+			},
+		},
+	}
+}
+
+// ResultConfirmKeyboard returns the keyboard for the result confirmation message.
+func ResultConfirmKeyboard(gameID int64) *models.InlineKeyboardMarkup {
+	return &models.InlineKeyboardMarkup{
+		InlineKeyboard: [][]models.InlineKeyboardButton{
+			{
+				{Text: "✅ Подтвердить", CallbackData: fmt.Sprintf("confirm_result:%d", gameID)},
+				{Text: "✏️ Изменить", CallbackData: fmt.Sprintf("edit_result:%d", gameID)},
+			},
+		},
+	}
+}
