@@ -368,3 +368,18 @@ go vet чист, go test ./... проходит.
 - `settlement_service_test.go`: добавлены 4 теста Validate (match, mismatch+поля, deferred, with rebuys)
 - go vet чист, go test ./... проходит
 **Следующий шаг:** TASK-036 (View персонального результата с реквизитами) и TASK-012 (SettlementRepository) — оба разблокированы. TASK-035 разблокируется после TASK-012.
+
+---
+
+### [TASK-036] View: персональное сообщение с результатом
+**Дата:** 2026-04-13
+**Статус:** done
+**Summary:**
+- `internal/bot/views/personal_result.go`: `RenderPersonalResult(gameID, playerID int64, transfers []domain.Transfer, players map[int64]*domain.Player) string`
+  - Проигравший (balance < 0): 📉, «Тебе нужно перевести» с именем, суммой, `<code>телефон</code>` и банком получателя
+  - Выигравший (balance > 0): 🎉, «Тебе должны перевести» только с именами (без реквизитов должников)
+  - Баланс 0 (нет переводов): «🤝 Ты остался при своих. Никому ничего не должен»
+  - Parse mode HTML, суммы в формате «X ₽»
+- `internal/bot/views/personal_result_test.go`: 5 тестов — Loser (phone+bank в `<code>`), Winner (нет телефонов должников), BreakEven (сообщение «остался при своих»), MultipleTransfers (список нескольких кредиторов + итоговая сумма), HTMLParseMode (`<b>` и `<code>` теги)
+- go vet чист, go test ./... проходит (15/15 в views)
+**Следующий шаг:** TASK-012 (SettlementRepository: SaveAll + ListByGame) — разблокирует TASK-035.
