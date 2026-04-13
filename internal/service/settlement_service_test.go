@@ -124,3 +124,73 @@ func TestCompute_TransferCountBound(t *testing.T) {
 		t.Errorf("expected <= 5 transfers for 6 non-zero players, got %d", len(transfers))
 	}
 }
+
+func makeConfirmedParticipant(playerID int64, rebuyCount int, finalChips int64) domain.Participant {
+	p := makeParticipant(playerID, rebuyCount, finalChips)
+	p.ResultsConfirmed = true
+	return p
+}
+
+func TestValidate_AllConfirmedMatch(t *testing.T) {
+	// buyIn=1000, player1: chips=1500 (invested=1000), player2: chips=500 (invested=1000)
+	// expected=2000, actual=2000 → nil
+	svc := service.NewSettlementService()
+	participants := []domain.Participant{
+		makeConfirmedParticipant(1, 0, 1500),
+		makeConfirmedParticipant(2, 0, 500),
+	}
+	if err := svc.Validate(participants, 1000); err != nil {
+		t.Errorf("expected nil, got %v", err)
+	}
+}
+
+func TestValidate_AllConfirmedMismatch(t *testing.T) {
+	// buyIn=1000, player1: chips=1600, player2: chips=500
+	// expected=2000, actual=2100 → BankMismatchError{Expected:2000, Actual:2100, Diff:100}
+	svc := service.NewSettlementService()
+	participants := []domain.Participant{
+		makeConfirmedParticipant(1, 0, 1600),
+		makeConfirmedParticipant(2, 0, 500),
+	}
+	err := svc.Validate(participants, 1000)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	mismatch, ok := service.IsBankMismatch(err)
+	if !ok {
+		t.Fatalf("expected BankMismatchError, got %T", err)
+	}
+	if mismatch.Expected != 2000 {
+		t.Errorf("Expected=%d, want 2000", mismatch.Expected)
+	}
+	if mismatch.Actual != 2100 {
+		t.Errorf("Actual=%d, want 2100", mismatch.Actual)
+	}
+	if mismatch.Diff != 100 {
+		t.Errorf("Diff=%d, want 100", mismatch.Diff)
+	}
+}
+
+func TestValidate_NotAllConfirmed_ReturnsNil(t *testing.T) {
+	// one participant not confirmed → deferred, return nil
+	svc := service.NewSettlementService()
+	p1 := makeConfirmedParticipant(1, 0, 0)  // confirmed, chips=0 (mismatch would occur)
+	p2 := makeParticipant(2, 0, 3000)        // NOT confirmed
+	// If validation ran: expected=2000, actual=3000 → mismatch. But p2 not confirmed → nil.
+	if err := svc.Validate([]domain.Participant{p1, p2}, 1000); err != nil {
+		t.Errorf("expected nil when not all confirmed, got %v", err)
+	}
+}
+
+func TestValidate_WithRebuys(t *testing.T) {
+	// buyIn=1000, player1: rebuy=1 → invested=2000, chips=2000; player2: rebuy=0 → invested=1000, chips=1000
+	// expected=3000, actual=3000 → nil
+	svc := service.NewSettlementService()
+	participants := []domain.Participant{
+		makeConfirmedParticipant(1, 1, 2000),
+		makeConfirmedParticipant(2, 0, 1000),
+	}
+	if err := svc.Validate(participants, 1000); err != nil {
+		t.Errorf("expected nil with rebuys balanced, got %v", err)
+	}
+}

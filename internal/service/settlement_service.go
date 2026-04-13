@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"sort"
 
 	"poker-bot/internal/domain"
@@ -10,6 +11,45 @@ type SettlementService struct{}
 
 func NewSettlementService() *SettlementService {
 	return &SettlementService{}
+}
+
+// Validate checks that Σfinal_chips == expected bank (Σ buy_in*(1+rebuy_count)).
+// Returns nil if all participants have confirmed and sums match.
+// Returns ErrBankMismatch (wrapped *BankMismatchError) if sums diverge.
+// If not all results are confirmed yet, returns nil (validation deferred).
+func (s *SettlementService) Validate(participants []domain.Participant, buyIn int64) error {
+	for _, p := range participants {
+		if !p.ResultsConfirmed {
+			return nil
+		}
+	}
+
+	var expected, actual int64
+	for _, p := range participants {
+		expected += buyIn * int64(1+p.RebuyCount)
+		if p.FinalChips != nil {
+			actual += *p.FinalChips
+		}
+	}
+
+	if expected == actual {
+		return nil
+	}
+
+	return &domain.BankMismatchError{
+		Expected: expected,
+		Actual:   actual,
+		Diff:     actual - expected,
+	}
+}
+
+// IsBankMismatch reports whether err is a BankMismatchError.
+func IsBankMismatch(err error) (*domain.BankMismatchError, bool) {
+	var e *domain.BankMismatchError
+	if errors.As(err, &e) {
+		return e, true
+	}
+	return nil, false
 }
 
 // Compute calculates the minimum set of transfers to settle all debts.

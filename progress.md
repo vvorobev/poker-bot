@@ -353,3 +353,18 @@ go vet чист, go test ./... проходит.
 - `game_service_test.go`: 3 теста — Success, Idempotent (chips не меняются при повторном confirm), ErrGameNotActive
 - go vet чист, go test ./... проходит
 **Следующий шаг:** TASK-033 (SettlementService.Validate) и TASK-036 (View персонального результата) — оба critical и разблокированы.
+
+---
+
+### [TASK-033] SettlementService.Validate: проверка сходимости банка
+**Дата:** 2026-04-13
+**Статус:** done
+**Summary:**
+- `internal/domain/errors.go`: `ErrBankMismatch` sentinel остался для `errors.Is`; добавлен custom type `BankMismatchError{Expected, Actual, Diff int64}` с методом `Error()`
+- `internal/service/settlement_service.go`: добавлен `Validate(participants []Participant, buyIn int64) error` — если не все `ResultsConfirmed`, возвращает nil (deferred); иначе сравнивает Σbuy_in*(1+rebuy) с Σfinal_chips; при расхождении возвращает `*BankMismatchError`; добавлен хелпер `IsBankMismatch(err) (*BankMismatchError, bool)` через `errors.As`
+- `internal/bot/handlers/collect_results.go`: `CollectResultsHandler` получил поле `settlements *service.SettlementService`; в `HandleConfirmResult` после обновления хаба вызывается `Validate`; при `BankMismatchError` — `SendMessage` в групповой чат с ⚠️ и цифрами расхождения
+- `internal/bot/bot.go`: `Deps` расширен полем `Settlements *service.SettlementService`
+- `cmd/bot/main.go`: создаётся `settlementSvc` и передаётся в `Deps`
+- `settlement_service_test.go`: добавлены 4 теста Validate (match, mismatch+поля, deferred, with rebuys)
+- go vet чист, go test ./... проходит
+**Следующий шаг:** TASK-036 (View персонального результата с реквизитами) и TASK-012 (SettlementRepository) — оба разблокированы. TASK-035 разблокируется после TASK-012.

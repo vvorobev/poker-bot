@@ -20,14 +20,15 @@ import (
 
 // CollectResultsHandler manages the personal chip collection flow during collecting_results.
 type CollectResultsHandler struct {
-	players  *service.PlayerService
-	games    *service.GameService
-	fsmStore *fsm.Store
+	players      *service.PlayerService
+	games        *service.GameService
+	fsmStore     *fsm.Store
+	settlements  *service.SettlementService
 }
 
 // NewCollectResultsHandler creates a CollectResultsHandler.
-func NewCollectResultsHandler(players *service.PlayerService, games *service.GameService, fsmStore *fsm.Store) *CollectResultsHandler {
-	return &CollectResultsHandler{players: players, games: games, fsmStore: fsmStore}
+func NewCollectResultsHandler(players *service.PlayerService, games *service.GameService, fsmStore *fsm.Store, settlements *service.SettlementService) *CollectResultsHandler {
+	return &CollectResultsHandler{players: players, games: games, fsmStore: fsmStore, settlements: settlements}
 }
 
 // SendCollectionMessage sends the interactive chip collection message to a player.
@@ -322,6 +323,21 @@ func (h *CollectResultsHandler) HandleConfirmResult(ctx context.Context, b *bot.
 
 	// Update hub in group chat.
 	h.updateHubAfterConfirm(ctx, b, game, participants)
+
+	// After hub update: validate bank if all results confirmed.
+	if err := h.settlements.Validate(participants, game.BuyIn); err != nil {
+		if mismatch, ok := service.IsBankMismatch(err); ok {
+			warnText := fmt.Sprintf(
+				"⚠️ Расхождение банка!\n\nОжидалось: <b>%d ₽</b>\nПо факту: <b>%d ₽</b>\nРазница: <b>%+d ₽</b>\n\nПопроси участников перепроверить данные.",
+				mismatch.Expected, mismatch.Actual, mismatch.Diff,
+			)
+			_, _ = b.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID:    game.ChatID,
+				Text:      warnText,
+				ParseMode: models.ParseModeHTML,
+			})
+		}
+	}
 }
 
 // HandleEditResult processes "edit_result:gameID" callback.

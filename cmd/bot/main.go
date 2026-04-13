@@ -45,6 +45,7 @@ func main() {
 
 	playerSvc := service.NewPlayerService(playerRepo)
 	gameSvc := service.NewGameService(gameRepo, participantRepo, txManager)
+	settlementSvc := service.NewSettlementService()
 	fsmStore := fsm.NewStore()
 
 	deps := telebot.Deps{
@@ -52,6 +53,7 @@ func main() {
 		Players:       playerSvc,
 		Games:         gameSvc,
 		FSM:           fsmStore,
+		Settlements:   settlementSvc,
 	}
 
 	b, err := telebot.New(cfg.BotToken, deps)

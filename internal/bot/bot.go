@@ -20,6 +20,7 @@ type Deps struct {
 	Players       *service.PlayerService
 	Games         *service.GameService
 	FSM           *fsm.Store
+	Settlements   *service.SettlementService
 }
 
 // New creates and configures a Telegram bot instance.
@@ -96,7 +97,7 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 		return ok && sess.State == fsm.StateAwaitingBuyIn
 	}, newGameH.HandleBuyInText)
 
-	collectH := handlers.NewCollectResultsHandler(deps.Players, deps.Games, deps.FSM)
+	collectH := handlers.NewCollectResultsHandler(deps.Players, deps.Games, deps.FSM, deps.Settlements)
 	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
 		return update.CallbackQuery != nil &&
 			strings.HasPrefix(update.CallbackQuery.Data, "collect_rebuy_plus:")
