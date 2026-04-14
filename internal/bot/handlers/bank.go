@@ -102,6 +102,22 @@ func (h *BankHandler) HandleBankText(ctx context.Context, b *bot.Bot, update *mo
 	h.finishRegistration(ctx, b, userID, chatID, bankName, msg.From)
 }
 
+// Custom bank name text input (FSM state=AwaitingBank, bank_custom=true).
+func (h *BankHandler) MatchBankTextCommand(update *models.Update) bool {
+	if update.Message == nil || update.Message.Text == "" {
+		return false
+	}
+	if update.Message.Chat.Type != models.ChatTypePrivate {
+		return false
+	}
+	sess, ok := h.fsmStore.Get(update.Message.From.ID)
+	if !ok || sess.State != fsm.StateAwaitingBank {
+		return false
+	}
+	customFlag, _ := sess.Data["bank_custom"].(bool)
+	return customFlag
+}
+
 // finishRegistration saves the player profile and sends a confirmation message.
 func (h *BankHandler) finishRegistration(
 	ctx context.Context,
@@ -138,9 +154,9 @@ func (h *BankHandler) finishRegistration(
 		displayName, phone, bankName,
 	)
 	_, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:    chatID,
-		Text:      text,
-		ParseMode: models.ParseModeHTML,
+		ChatID:      chatID,
+		Text:        text,
+		ParseMode:   models.ParseModeHTML,
 		ReplyMarkup: &models.ReplyKeyboardRemove{RemoveKeyboard: true},
 	})
 	if err != nil {

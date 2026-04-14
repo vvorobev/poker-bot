@@ -26,6 +26,7 @@ var botCommands = []models.BotCommand{
 	{Command: "game", Description: "Текущая игра"},
 	{Command: "name", Description: "Изменить отображаемое имя"},
 	{Command: "edit", Description: "Изменить введённые данные"},
+	{Command: "number", Description: "Изменить номер телефона и банк"},
 	{Command: "cancel", Description: "Отменить текущее действие"},
 	{Command: "help", Description: "Список команд"},
 }
@@ -90,6 +91,7 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 	startH := handlers.NewStartHandler(deps.Players, deps.FSM)
 	b.RegisterHandler(bot.HandlerTypeMessageText, "/start", bot.MatchTypeExact, startH.Handle)
 	b.RegisterHandler(bot.HandlerTypeMessageText, handlers.ManualPhoneButtonText, bot.MatchTypeExact, startH.HandleManualPhone)
+	b.RegisterHandler(bot.HandlerTypeMessageText, "/number", bot.MatchTypeExact, startH.HandleManualPhone)
 	b.RegisterHandler(bot.HandlerTypeCallbackQueryData, "start:ok", bot.MatchTypeExact, handlers.HandleStartOK)
 
 	phoneH := handlers.NewPhoneHandler(deps.Players, deps.FSM)
@@ -195,21 +197,8 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 		return update.CallbackQuery != nil &&
 			strings.HasPrefix(update.CallbackQuery.Data, "bank:")
 	}, bankH.HandleBankCallback)
-	// Custom bank name text input (FSM state=AwaitingBank, bank_custom=true).
-	b.RegisterHandlerMatchFunc(func(update *models.Update) bool {
-		if update.Message == nil || update.Message.Text == "" {
-			return false
-		}
-		if update.Message.Chat.Type != models.ChatTypePrivate {
-			return false
-		}
-		sess, ok := fsmStore.Get(update.Message.From.ID)
-		if !ok || sess.State != fsm.StateAwaitingBank {
-			return false
-		}
-		customFlag, _ := sess.Data["bank_custom"].(bool)
-		return customFlag
-	}, bankH.HandleBankText)
+
+	b.RegisterHandlerMatchFunc(bankH.MatchBankTextCommand, bankH.HandleBankText)
 
 	// Fallback handlers — must be registered last (first-match semantics).
 	fallbackH := handlers.NewFallbackHandler(deps.FSM)
