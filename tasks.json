@@ -926,6 +926,38 @@
         "TASK-008"
       ],
       "status": "done"
+    },
+    {
+      "id": "TASK-041",
+      "category": "functional",
+      "priority": "high",
+      "description": "Fix: manual phone input during registration — set FSM to StateAwaitingPhone in sendWelcome",
+      "acceptance_criteria": [
+        "User sends /start, bot shows welcome keyboard with share-contact and manual-input buttons",
+        "User types valid phone number (e.g. +79991234567) directly WITHOUT pressing any button — bot accepts it and proceeds to bank selection",
+        "Share contact button still works (no regression)",
+        "Manual input button still works (no regression)",
+        "Typing invalid text while in StateAwaitingPhone shows phone format error, not plain-text fallback message",
+        "/cancel resets FSM to idle during registration flow"
+      ],
+      "test_steps": [
+        "Step 1: Start fresh — delete player record from DB or use new Telegram account",
+        "Step 2: Send /start in private chat — verify welcome message with two-button keyboard appears",
+        "Step 3: Type +79991234567 directly (no button press) — verify bot asks for bank details, NOT shows fallback/unknown-command message",
+        "Step 4: Start fresh again, press share-contact button — verify still works",
+        "Step 5: Start fresh again, press manual-input button, then type number — verify still works",
+        "Step 6: Start fresh, type non-phone text like \"hello\" — verify phone format error shown",
+        "Step 7: Start fresh, type /cancel — verify FSM resets, bot shows idle response"
+      ],
+      "implementation_notes": [
+        "Root cause: sendWelcome in internal/bot/handlers/start.go does NOT set FSM state to StateAwaitingPhone",
+        "Phone text handler match func (bot.go:102-112) requires sess.State == fsm.StateAwaitingPhone — fails when user skips manual-input button",
+        "Contact handler (bot.go:97-100) has no FSM check — works regardless of state (asymmetry)",
+        "Fix: in sendWelcome, call fsmStore.Set(userID, StateAwaitingPhone) before sending message",
+        "Need to pass userID to sendWelcome or inject FSM store into StartHandler"
+      ],
+      "dependencies": [],
+      "status": "done"
     }
   ]
 }

@@ -522,3 +522,16 @@ go vet чист, go test ./... проходит.
 - Группа: случайный текст игнорируется (match func возвращает false для non-private чатов)
 - go vet чист, go test ./... все проходят (0 новых тестов, логика тривиальная)
 **Все задачи выполнены. TASK-040 — последняя pending задача.**
+
+---
+
+### [TASK-041] Fix: manual phone input during registration
+**Дата:** 2026-04-14
+**Статус:** done
+**Summary:**
+- Root cause: `sendWelcome` in `start.go` не устанавливала FSM state → пользователь печатал номер, но match func `StateAwaitingPhone` возвращала false → попадал в fallback
+- Fix: добавлен `userID int64` параметр в `sendWelcome`; перед отправкой сообщения вызывается `fsmStore.Set(userID, StateAwaitingPhone)`
+- Теперь после `/start` пользователь может сразу напечатать номер без нажатия кнопки «Ввести вручную»
+- Кнопка «Ввести вручную» продолжает работать (устанавливает тот же state в `HandleManualPhone`)
+- go vet чист, go test ./... все проходят
+**Все задачи выполнены.**

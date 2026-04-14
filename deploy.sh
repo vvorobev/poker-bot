@@ -61,6 +61,6 @@ echo "==> Status:"
 $SSH "systemctl status ${SERVICE_NAME} --no-pager -l"
 
 echo ""
-echo "Done. Logs: ssh ${SSH_HOST} 'mournalctl -fu ${SERVICE_NAME}'"
+echo "Done. Logs: ssh ${SSH_HOST} 'journalctl -fu ${SERVICE_NAME}'"
 
 rm -f "${BINARY_NAME}-linux"

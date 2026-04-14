@@ -52,7 +52,7 @@ func (h *StartHandler) Handle(ctx context.Context, b *bot.Bot, update *models.Up
 		return
 	}
 
-	h.sendWelcome(ctx, b, chatID)
+	h.sendWelcome(ctx, b, userID, chatID)
 }
 
 // sendProfile shows the player's current profile with an "Ок" inline button.
@@ -78,7 +78,15 @@ func (h *StartHandler) sendProfile(ctx context.Context, b *bot.Bot, chatID int64
 }
 
 // sendWelcome shows the onboarding welcome message with the contact-sharing keyboard.
-func (h *StartHandler) sendWelcome(ctx context.Context, b *bot.Bot, chatID int64) {
+// It sets FSM state to StateAwaitingPhone so the user can type a phone number directly.
+func (h *StartHandler) sendWelcome(ctx context.Context, b *bot.Bot, userID int64, chatID int64) {
+	sess, ok := h.fsmStore.Get(userID)
+	if !ok {
+		sess = &fsm.Session{State: fsm.StateIdle, Data: make(map[string]any)}
+	}
+	sess.State = fsm.StateAwaitingPhone
+	h.fsmStore.Set(userID, sess)
+
 	text := "👋 Привет! Для участия в играх нужно зарегистрироваться.\n\n" +
 		"Поделись своим номером телефона или введи его вручную."
 
