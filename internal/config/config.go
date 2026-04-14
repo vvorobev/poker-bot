@@ -15,6 +15,7 @@ type Config struct {
 	LogPath       string
 	AllowedChatID int64
 	AdminUserIDs  []int64
+	ProxyURL      string
 }
 
 func Load() (*Config, error) {
@@ -66,5 +67,6 @@ func Load() (*Config, error) {
 		LogPath:       logPath,
 		AllowedChatID: allowedChatID,
 		AdminUserIDs:  adminUserIDs,
+		ProxyURL:      os.Getenv("PROXY_URL"),
 	}, nil
 }

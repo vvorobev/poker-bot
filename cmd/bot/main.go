@@ -55,6 +55,7 @@ func main() {
 		Games:         gameSvc,
 		FSM:           fsmStore,
 		Settlements:   settlementSvc,
+		ProxyURL:      cfg.ProxyURL,
 	}
 
 	b, err := telebot.New(cfg.BotToken, deps)

@@ -2,11 +2,17 @@ package bot
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"net"
+	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"golang.org/x/net/proxy"
 
 	"poker-bot/internal/bot/handlers"
 	"poker-bot/internal/bot/middleware"
@@ -31,6 +37,28 @@ type Deps struct {
 	Games         *service.GameService
 	FSM           *fsm.Store
 	Settlements   *service.SettlementService
+	ProxyURL      string
+}
+
+func proxyHTTPClient(proxyURL string) (*http.Client, error) {
+	u, err := url.Parse(proxyURL)
+	if err != nil {
+		return nil, err
+	}
+	switch u.Scheme {
+	case "socks5", "socks5h":
+		dialer, err := proxy.FromURL(u, proxy.Direct)
+		if err != nil {
+			return nil, err
+		}
+		return &http.Client{Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return dialer.Dial(network, addr)
+			},
+		}}, nil
+	default:
+		return &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(u)}}, nil
+	}
 }
 
 // New creates and configures a Telegram bot instance.
@@ -42,6 +70,14 @@ func New(token string, deps Deps) (*bot.Bot, error) {
 			slog.Error("telegram bot error", "err", err)
 		}),
 		bot.WithMiddlewares(auth.Middleware),
+	}
+
+	if deps.ProxyURL != "" {
+		httpClient, err := proxyHTTPClient(deps.ProxyURL)
+		if err != nil {
+			return nil, fmt.Errorf("proxy: %w", err)
+		}
+		opts = append(opts, bot.WithHTTPClient(30*time.Second, httpClient))
 	}
 
 	b, err := bot.New(token, opts...)
