@@ -23,7 +23,7 @@ $SCP "${BINARY_NAME}-linux" "${SSH_HOST}:${REMOTE_DIR}/${BINARY_NAME}"
 $SSH "chmod +x ${REMOTE_DIR}/${BINARY_NAME}"
 
 echo "==> Uploading .env..."
-$SCP .env "${SSH_HOST}:${REMOTE_DIR}/.env"
+$SCP .env.prod "${SSH_HOST}:${REMOTE_DIR}/.env"
 $SSH "chmod 600 ${REMOTE_DIR}/.env"
 
 # Upload DB only if it doesn't exist remotely yet (don't overwrite prod data)
